@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import {
-  ARENA,
   BALL,
   BOOST_PAD_LAYOUT,
   CAR,
