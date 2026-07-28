@@ -45,7 +45,11 @@ export class ReferenceBallSimulation {
     return structuredClone(this.current);
   }
 
-  public setBall(position: Readonly<Vec3>, linearVelocity: Readonly<Vec3>, angularVelocity: Readonly<Vec3> = { x: 0, y: 0, z: 0 }): void {
+  public setBall(
+    position: Readonly<Vec3>,
+    linearVelocity: Readonly<Vec3>,
+    angularVelocity: Readonly<Vec3> = { x: 0, y: 0, z: 0 },
+  ): void {
     this.current.ball.position = cloneVec3(position);
     this.current.ball.linearVelocity = cloneVec3(linearVelocity);
     this.current.ball.angularVelocity = cloneVec3(angularVelocity);

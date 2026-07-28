@@ -8,15 +8,69 @@ export interface BoostPadDefinition {
 }
 
 export const BOOST = Object.freeze({
-  smallCount: sourced({ value: 28, unit: 'pads', status: 'verified', source: 'RLBot FieldInfo standard-map order', confidence: 0.99 }),
-  smallGrant: sourced({ value: 12, unit: 'boost', status: 'verified', source: 'RLBot useful game values', confidence: 0.99 }),
-  smallRespawn: sourced({ value: 4, unit: 's', status: 'verified', source: 'RLBot useful game values', confidence: 0.99 }),
-  smallRadius: sourced({ value: 144, unit: 'uu', status: 'verified', source: 'RLBot useful game values', confidence: 0.99 }),
-  smallHeight: sourced({ value: 165, unit: 'uu', status: 'verified', source: 'RLBot useful game values', confidence: 0.99 }),
-  largeCount: sourced({ value: 6, unit: 'pads', status: 'verified', source: 'RLBot FieldInfo standard-map order', confidence: 0.99 }),
-  largeRespawn: sourced({ value: 10, unit: 's', status: 'verified', source: 'RLBot useful game values', confidence: 0.99 }),
-  largeRadius: sourced({ value: 208, unit: 'uu', status: 'verified', source: 'RLBot useful game values', confidence: 0.99 }),
-  largeHeight: sourced({ value: 168, unit: 'uu', status: 'verified', source: 'RLBot useful game values', confidence: 0.99 }),
+  smallCount: sourced({
+    value: 28,
+    unit: 'pads',
+    status: 'verified',
+    source: 'RLBot FieldInfo standard-map order',
+    confidence: 0.99,
+  }),
+  smallGrant: sourced({
+    value: 12,
+    unit: 'boost',
+    status: 'verified',
+    source: 'RLBot useful game values',
+    confidence: 0.99,
+  }),
+  smallRespawn: sourced({
+    value: 4,
+    unit: 's',
+    status: 'verified',
+    source: 'RLBot useful game values',
+    confidence: 0.99,
+  }),
+  smallRadius: sourced({
+    value: 144,
+    unit: 'uu',
+    status: 'verified',
+    source: 'RLBot useful game values',
+    confidence: 0.99,
+  }),
+  smallHeight: sourced({
+    value: 165,
+    unit: 'uu',
+    status: 'verified',
+    source: 'RLBot useful game values',
+    confidence: 0.99,
+  }),
+  largeCount: sourced({
+    value: 6,
+    unit: 'pads',
+    status: 'verified',
+    source: 'RLBot FieldInfo standard-map order',
+    confidence: 0.99,
+  }),
+  largeRespawn: sourced({
+    value: 10,
+    unit: 's',
+    status: 'verified',
+    source: 'RLBot useful game values',
+    confidence: 0.99,
+  }),
+  largeRadius: sourced({
+    value: 208,
+    unit: 'uu',
+    status: 'verified',
+    source: 'RLBot useful game values',
+    confidence: 0.99,
+  }),
+  largeHeight: sourced({
+    value: 168,
+    unit: 'uu',
+    status: 'verified',
+    source: 'RLBot useful game values',
+    confidence: 0.99,
+  }),
 });
 
 const RAW_PAD_LAYOUT: readonly (readonly [number, number, number, boolean])[] = [

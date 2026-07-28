@@ -77,7 +77,12 @@ scene.add(centerLine);
 
 const centerCircle = new THREE.Mesh(
   new THREE.RingGeometry(780, 792, 96),
-  new THREE.MeshBasicMaterial({ color: 0x4fdcff, transparent: true, opacity: 0.48, side: THREE.DoubleSide }),
+  new THREE.MeshBasicMaterial({
+    color: 0x4fdcff,
+    transparent: true,
+    opacity: 0.48,
+    side: THREE.DoubleSide,
+  }),
 );
 centerCircle.rotation.x = -Math.PI / 2;
 centerCircle.position.y = 1.6;
@@ -102,11 +107,7 @@ const goalTopHeight = 700 - ARENA.goalHeight.value;
 for (const z of [-5120, 5120]) {
   for (const side of [-1, 1]) {
     const wall = new THREE.Mesh(new THREE.BoxGeometry(goalSideWidth, 700, 64), wallMaterial);
-    wall.position.set(
-      side * (ARENA.goalHalfWidth.value + goalSideWidth * 0.5),
-      350,
-      z,
-    );
+    wall.position.set(side * (ARENA.goalHalfWidth.value + goalSideWidth * 0.5), 350, z);
     scene.add(wall);
   }
   const top = new THREE.Mesh(
@@ -340,12 +341,15 @@ function frame(now: number): void {
   if (blueScoreElement) blueScoreElement.textContent = String(state.match.blueScore);
   if (orangeScoreElement) orangeScoreElement.textContent = String(state.match.orangeScore);
   if (clockElement) {
-    clockElement.textContent = state.match.phase === 'overtime' ? '+0:00' : formatClock(state.match.clockSeconds);
+    clockElement.textContent =
+      state.match.phase === 'overtime' ? '+0:00' : formatClock(state.match.clockSeconds);
   }
   if (phaseElement) phaseElement.textContent = state.match.phase.toUpperCase();
   if (announcementElement) {
     if (state.match.phase === 'countdown') {
-      announcementElement.textContent = String(Math.max(1, Math.ceil(state.match.countdownSeconds)));
+      announcementElement.textContent = String(
+        Math.max(1, Math.ceil(state.match.countdownSeconds)),
+      );
       announcementElement.classList.add('visible');
     } else if (state.match.phase === 'goal') {
       announcementElement.textContent = `${state.match.lastScorer?.toUpperCase() ?? ''} SCORES`;

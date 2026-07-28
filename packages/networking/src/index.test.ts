@@ -17,7 +17,9 @@ const validFrame = {
 
 describe('parseClientMessage', () => {
   it('accepts a compatible hello', () => {
-    expect(parseClientMessage(JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION }))).toEqual({
+    expect(
+      parseClientMessage(JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION })),
+    ).toEqual({
       type: 'hello',
       protocol: PROTOCOL_VERSION,
     });

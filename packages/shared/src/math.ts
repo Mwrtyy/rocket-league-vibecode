@@ -71,7 +71,7 @@ export function moveToward(current: number, target: number, maximumDelta: number
 
 export function wrapRadians(value: number): number {
   const twoPi = Math.PI * 2;
-  return ((value + Math.PI) % twoPi + twoPi) % twoPi - Math.PI;
+  return ((((value + Math.PI) % twoPi) + twoPi) % twoPi) - Math.PI;
 }
 
 export function lerp(a: number, b: number, alpha: number): number {

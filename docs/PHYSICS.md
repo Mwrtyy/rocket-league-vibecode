@@ -5,8 +5,8 @@
 The canonical simulation rate is 120 Hz:
 
 ```ts
-PHYSICS_HZ = 120
-FIXED_DT = 1 / PHYSICS_HZ
+PHYSICS_HZ = 120;
+FIXED_DT = 1 / PHYSICS_HZ;
 ```
 
 The render loop uses an accumulator with a scale-relative comparison epsilon. Catch-up is capped to prevent a suspended tab from causing an unbounded simulation spiral. Excess elapsed time is recorded rather than changing gameplay speed. Regression tests cover 30, 60, 120 and 144 Hz rendering.

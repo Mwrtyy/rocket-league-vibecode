@@ -38,14 +38,24 @@ scene.add(key);
 
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(8192, 10240, 24, 30),
-  new THREE.MeshStandardMaterial({ color: 0x102431, roughness: 0.62, metalness: 0.18, wireframe: true }),
+  new THREE.MeshStandardMaterial({
+    color: 0x102431,
+    roughness: 0.62,
+    metalness: 0.18,
+    wireframe: true,
+  }),
 );
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
 const ballMesh = new THREE.Mesh(
   new THREE.IcosahedronGeometry(BALL.radius.value, 4),
-  new THREE.MeshStandardMaterial({ color: 0xe8f7ff, roughness: 0.24, metalness: 0.36, emissive: 0x113355 }),
+  new THREE.MeshStandardMaterial({
+    color: 0xe8f7ff,
+    roughness: 0.24,
+    metalness: 0.36,
+    emissive: 0x113355,
+  }),
 );
 scene.add(ballMesh);
 
@@ -92,19 +102,42 @@ function animate(now: number): void {
   const snapshot = physics.snapshot();
   ballMesh.position.set(snapshot.position.x, snapshot.position.z, -snapshot.position.y);
   if (stats.steps > 0) appendTrail(snapshot.position.x, snapshot.position.y, snapshot.position.z);
-  if (telemetry) telemetry.textContent = JSON.stringify({ tickRate: 1 / FIXED_DT, steps: stats.steps, alpha: Number(stats.alpha.toFixed(3)), ...snapshot }, null, 2);
+  if (telemetry)
+    telemetry.textContent = JSON.stringify(
+      {
+        tickRate: 1 / FIXED_DT,
+        steps: stats.steps,
+        alpha: Number(stats.alpha.toFixed(3)),
+        ...snapshot,
+      },
+      null,
+      2,
+    );
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
 
 document.querySelector('#reset')?.addEventListener('click', () => setScenario());
-document.querySelector('#launch')?.addEventListener('click', () => setScenario({ x: -2200, y: 0, z: 420 }, { x: 5200, y: 400, z: 1350 }));
-document.querySelector('#pause')?.addEventListener('click', () => { paused = !paused; });
+document
+  .querySelector('#launch')
+  ?.addEventListener('click', () =>
+    setScenario({ x: -2200, y: 0, z: 420 }, { x: 5200, y: 400, z: 1350 }),
+  );
+document.querySelector('#pause')?.addEventListener('click', () => {
+  paused = !paused;
+});
 document.querySelector('#export')?.addEventListener('click', () => {
-  const data = runBallExperiment({ durationSeconds: 4, position: { x: 0, y: 0, z: 1800 }, velocity: { x: 1200, y: 250, z: 0 } });
+  const data = runBallExperiment({
+    durationSeconds: 4,
+    position: { x: 0, y: 0, z: 1800 },
+    velocity: { x: 1200, y: 250, z: 0 },
+  });
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'aether-trajectory.json' });
+  const link = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: 'aether-trajectory.json',
+  });
   link.click();
   URL.revokeObjectURL(link.href);
 });

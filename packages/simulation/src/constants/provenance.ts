@@ -10,7 +10,9 @@ export interface SourcedConstant<T extends number | string = number> {
   readonly notes?: string;
 }
 
-export function sourced<T extends number | string>(constant: SourcedConstant<T>): SourcedConstant<T> {
+export function sourced<T extends number | string>(
+  constant: SourcedConstant<T>,
+): SourcedConstant<T> {
   if (constant.confidence < 0 || constant.confidence > 1) {
     throw new RangeError('Constant confidence must be between 0 and 1.');
   }

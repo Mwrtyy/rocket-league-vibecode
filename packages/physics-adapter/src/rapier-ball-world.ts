@@ -44,8 +44,18 @@ export class RapierBallWorld {
   }
 
   public setBall(position: Readonly<Vec3>, linearVelocity: Readonly<Vec3>): void {
-    this.body.setTranslation({ x: uuToMetres(position.x), y: uuToMetres(position.y), z: uuToMetres(position.z) }, true);
-    this.body.setLinvel({ x: uuToMetres(linearVelocity.x), y: uuToMetres(linearVelocity.y), z: uuToMetres(linearVelocity.z) }, true);
+    this.body.setTranslation(
+      { x: uuToMetres(position.x), y: uuToMetres(position.y), z: uuToMetres(position.z) },
+      true,
+    );
+    this.body.setLinvel(
+      {
+        x: uuToMetres(linearVelocity.x),
+        y: uuToMetres(linearVelocity.y),
+        z: uuToMetres(linearVelocity.z),
+      },
+      true,
+    );
     this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
   }
 
@@ -55,13 +65,19 @@ export class RapierBallWorld {
     const speedUu = Math.hypot(velocity.x, velocity.y, velocity.z) * 100;
     if (speedUu > BALL.maximumLinearSpeed.value) {
       const scale = BALL.maximumLinearSpeed.value / speedUu;
-      this.body.setLinvel({ x: velocity.x * scale, y: velocity.y * scale, z: velocity.z * scale }, true);
+      this.body.setLinvel(
+        { x: velocity.x * scale, y: velocity.y * scale, z: velocity.z * scale },
+        true,
+      );
     }
     const angular = this.body.angvel();
     const angularSpeed = Math.hypot(angular.x, angular.y, angular.z);
     if (angularSpeed > BALL.maximumAngularSpeed.value) {
       const scale = BALL.maximumAngularSpeed.value / angularSpeed;
-      this.body.setAngvel({ x: angular.x * scale, y: angular.y * scale, z: angular.z * scale }, true);
+      this.body.setAngvel(
+        { x: angular.x * scale, y: angular.y * scale, z: angular.z * scale },
+        true,
+      );
     }
   }
 
@@ -71,7 +87,11 @@ export class RapierBallWorld {
     const angular = this.body.angvel();
     return {
       position: { x: metresToUu(position.x), y: metresToUu(position.y), z: metresToUu(position.z) },
-      linearVelocity: { x: metresToUu(velocity.x), y: metresToUu(velocity.y), z: metresToUu(velocity.z) },
+      linearVelocity: {
+        x: metresToUu(velocity.x),
+        y: metresToUu(velocity.y),
+        z: metresToUu(velocity.z),
+      },
       angularVelocity: { x: angular.x, y: angular.y, z: angular.z },
     };
   }

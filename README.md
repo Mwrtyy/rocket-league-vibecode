@@ -45,16 +45,16 @@ pnpm typecheck
 
 ## Default controls
 
-| Action | Keyboard | Controller concept |
-|---|---|---|
+| Action             | Keyboard  | Controller concept   |
+| ------------------ | --------- | -------------------- |
 | Throttle / reverse | `W` / `S` | right / left trigger |
-| Steer | `A` / `D` | left stick |
-| Jump / dodge | `Space` | south face button |
-| Boost | `Shift` | east face button |
-| Powerslide | `Ctrl` | west face button |
-| Air roll | `Q` / `E` | bumpers |
-| Ball camera | `C` | north face button |
-| Restart match | `R` | keyboard only |
+| Steer              | `A` / `D` | left stick           |
+| Jump / dodge       | `Space`   | south face button    |
+| Boost              | `Shift`   | east face button     |
+| Powerslide         | `Ctrl`    | west face button     |
+| Air roll           | `Q` / `E` | bumpers              |
+| Ball camera        | `C`       | north face button    |
+| Restart match      | `R`       | keyboard only        |
 
 ## Applications
 

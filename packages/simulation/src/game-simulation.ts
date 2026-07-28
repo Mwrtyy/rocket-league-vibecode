@@ -19,12 +19,7 @@ import { CAR, steeringCurvature } from './constants/car.js';
 import { MATCH } from './constants/match.js';
 import { FIXED_DT, WORLD } from './constants/world.js';
 import { NEUTRAL_INPUT, type PlayerInputFrame } from './input.js';
-import {
-  createInitialState,
-  type CarState,
-  type SimulationState,
-  type Team,
-} from './state.js';
+import { createInitialState, type CarState, type SimulationState, type Team } from './state.js';
 
 const CAR_HALF_LENGTH = CAR.hitboxLength.value * 0.5;
 const CAR_HALF_WIDTH = CAR.hitboxWidth.value * 0.5;
@@ -129,16 +124,8 @@ export class GameSimulation {
     const clampedAlpha = clamp(alpha, 0, 1);
     return {
       tick: this.current.tick,
-      ballPosition: lerpVec3(
-        this.previous.ball.position,
-        this.current.ball.position,
-        clampedAlpha,
-      ),
-      carPosition: lerpVec3(
-        this.previous.car.position,
-        this.current.car.position,
-        clampedAlpha,
-      ),
+      ballPosition: lerpVec3(this.previous.ball.position, this.current.ball.position, clampedAlpha),
+      carPosition: lerpVec3(this.previous.car.position, this.current.car.position, clampedAlpha),
       carYaw: lerpAngle(
         this.previous.car.rotation.yaw,
         this.current.car.rotation.yaw,
@@ -211,39 +198,24 @@ export class GameSimulation {
     car.supersonic = magnitude(car.linearVelocity) >= CAR.supersonicThreshold.value;
   }
 
-  private integrateGroundDrive(
-    car: CarState,
-    input: Readonly<PlayerInputFrame>,
-    dt: number,
-  ): void {
+  private integrateGroundDrive(car: CarState, input: Readonly<PlayerInputFrame>, dt: number): void {
     const forward = forwardFromYaw(car.rotation.yaw);
     const right = rightFromYaw(car.rotation.yaw);
     let forwardSpeed = dotVec3(car.linearVelocity, forward);
     let lateralSpeed = dotVec3(car.linearVelocity, right);
     const throttle = input.throttle;
 
-    let acceleration = 0;
+    let acceleration: number;
     if (Math.abs(throttle) < 0.001) {
       acceleration = -Math.sign(forwardSpeed) * CAR.coastingAcceleration.value;
       if (Math.abs(forwardSpeed) <= CAR.coastingAcceleration.value * dt) forwardSpeed = 0;
-    } else if (
-      Math.sign(throttle) !== Math.sign(forwardSpeed) &&
-      Math.abs(forwardSpeed) > 20
-    ) {
+    } else if (Math.sign(throttle) !== Math.sign(forwardSpeed) && Math.abs(forwardSpeed) > 20) {
       acceleration = Math.sign(throttle) * CAR.brakingAcceleration.value;
     } else if (throttle > 0) {
-      const remaining = clamp(
-        1 - Math.max(0, forwardSpeed) / CAR.normalTopSpeed.value,
-        0,
-        1,
-      );
+      const remaining = clamp(1 - Math.max(0, forwardSpeed) / CAR.normalTopSpeed.value, 0, 1);
       acceleration = CAR.throttleAcceleration.value * remaining * throttle;
     } else {
-      const remaining = clamp(
-        1 - Math.max(0, -forwardSpeed) / CAR.reverseTopSpeed.value,
-        0,
-        1,
-      );
+      const remaining = clamp(1 - Math.max(0, -forwardSpeed) / CAR.reverseTopSpeed.value, 0, 1);
       acceleration = CAR.reverseAcceleration.value * remaining * throttle;
     }
 
@@ -270,18 +242,10 @@ export class GameSimulation {
     const direction = forwardSpeed < -5 ? -1 : 1;
     const slideMultiplier = input.handbrake ? 1.45 : 1;
     car.angularVelocity.z =
-      input.steer *
-      steeringSpeed *
-      steeringCurvature(steeringSpeed) *
-      direction *
-      slideMultiplier;
+      input.steer * steeringSpeed * steeringCurvature(steeringSpeed) * direction * slideMultiplier;
   }
 
-  private integrateAirControl(
-    car: CarState,
-    input: Readonly<PlayerInputFrame>,
-    dt: number,
-  ): void {
+  private integrateAirControl(car: CarState, input: Readonly<PlayerInputFrame>, dt: number): void {
     const forward = forwardFromRotation(car.rotation.yaw, car.rotation.pitch);
     if (Math.abs(input.throttle) > 0.001) {
       addScaledVec3(
@@ -439,20 +403,14 @@ export class GameSimulation {
       const height = definition.isLarge ? BOOST.largeHeight.value : BOOST.smallHeight.value;
       if (car.position.z < 0 || car.position.z > height) continue;
       if (
-        Math.hypot(
-          car.position.x - definition.position.x,
-          car.position.y - definition.position.y,
-        ) > radius
+        Math.hypot(car.position.x - definition.position.x, car.position.y - definition.position.y) >
+        radius
       ) {
         continue;
       }
-      car.boost = definition.isLarge
-        ? 100
-        : Math.min(100, car.boost + BOOST.smallGrant.value);
+      car.boost = definition.isLarge ? 100 : Math.min(100, car.boost + BOOST.smallGrant.value);
       pad.active = false;
-      pad.respawnSeconds = definition.isLarge
-        ? BOOST.largeRespawn.value
-        : BOOST.smallRespawn.value;
+      pad.respawnSeconds = definition.isLarge ? BOOST.largeRespawn.value : BOOST.smallRespawn.value;
     }
   }
 
@@ -462,9 +420,7 @@ export class GameSimulation {
       if (match.countdownSeconds <= dt + TIME_EPSILON) {
         match.countdownSeconds = 0;
         match.phase =
-          match.clockSeconds <= 0 && match.blueScore === match.orangeScore
-            ? 'overtime'
-            : 'playing';
+          match.clockSeconds <= 0 && match.blueScore === match.orangeScore ? 'overtime' : 'playing';
       } else {
         match.countdownSeconds -= dt;
       }
@@ -529,19 +485,12 @@ export class GameSimulation {
   }
 
   private isBallGrounded(): boolean {
-    return (
-      this.current.ball.position.z <=
-      BALL_FLOOR_Z + MATCH.zeroSecondGroundTolerance.value
-    );
+    return this.current.ball.position.z <= BALL_FLOOR_Z + MATCH.zeroSecondGroundTolerance.value;
   }
 
   private resetKickoff(): void {
     const match = this.current.match;
-    this.setCar(
-      { x: 0, y: -1200, z: CAR_HALF_HEIGHT },
-      { x: 0, y: 0, z: 0 },
-      0,
-    );
+    this.setCar({ x: 0, y: -1200, z: CAR_HALF_HEIGHT }, { x: 0, y: 0, z: 0 }, 0);
     this.current.car.boost = MATCH.startingBoost.value;
     this.setBall({ x: 0, y: 0, z: BALL_FLOOR_Z }, { x: 0, y: 0, z: 0 });
     for (const pad of this.current.boostPads) {
@@ -603,8 +552,7 @@ export class GameSimulation {
 
     const inverseMass = 1 / BALL.mass.value + 1 / CAR.mass.value;
     const dodgeMultiplier = car.jump.dodgeActiveSeconds > 0 ? 1.18 : 1;
-    const impulse =
-      (-(1 + IMPACT_RESTITUTION) * normalSpeed * dodgeMultiplier) / inverseMass;
+    const impulse = (-(1 + IMPACT_RESTITUTION) * normalSpeed * dodgeMultiplier) / inverseMass;
     addScaledVec3(ball.linearVelocity, normal, impulse / BALL.mass.value);
     addScaledVec3(car.linearVelocity, normal, -impulse / CAR.mass.value);
 
@@ -615,12 +563,9 @@ export class GameSimulation {
     };
     const tangent = normalizeVec3(tangentVelocity);
     const spinImpulse = Math.min(2.5, magnitude(tangentVelocity) / 900);
-    ball.angularVelocity.x +=
-      (normal.y * tangent.z - normal.z * tangent.y) * spinImpulse;
-    ball.angularVelocity.y +=
-      (normal.z * tangent.x - normal.x * tangent.z) * spinImpulse;
-    ball.angularVelocity.z +=
-      (normal.x * tangent.y - normal.y * tangent.x) * spinImpulse;
+    ball.angularVelocity.x += (normal.y * tangent.z - normal.z * tangent.y) * spinImpulse;
+    ball.angularVelocity.y += (normal.z * tangent.x - normal.x * tangent.z) * spinImpulse;
+    ball.angularVelocity.z += (normal.x * tangent.y - normal.y * tangent.x) * spinImpulse;
     clampMagnitude(ball.linearVelocity, BALL.maximumLinearSpeed.value);
     clampMagnitude(ball.angularVelocity, BALL.maximumAngularSpeed.value);
   }

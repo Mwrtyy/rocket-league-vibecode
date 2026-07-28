@@ -10,7 +10,7 @@ describe('ReferenceBallSimulation', () => {
     for (let tick = 0; tick < 120; tick += 1) simulation.step();
     const state = simulation.getState();
     const expectedVelocity = -WORLD.gravity.value;
-    const expectedPosition = 2000 - WORLD.gravity.value * FIXED_DT * FIXED_DT * (120 * 121) / 2;
+    const expectedPosition = 2000 - (WORLD.gravity.value * FIXED_DT * FIXED_DT * (120 * 121)) / 2;
     expect(state.ball.linearVelocity.z).toBeCloseTo(expectedVelocity, 8);
     expect(state.ball.position.z).toBeCloseTo(expectedPosition, 8);
   });
@@ -20,7 +20,10 @@ describe('ReferenceBallSimulation', () => {
     simulation.setBall({ x: 0, y: 0, z: 2000 }, { x: 8000, y: 8000, z: 0 });
     simulation.step();
     const velocity = simulation.getState().ball.linearVelocity;
-    expect(Math.hypot(velocity.x, velocity.y, velocity.z)).toBeCloseTo(BALL.maximumLinearSpeed.value, 8);
+    expect(Math.hypot(velocity.x, velocity.y, velocity.z)).toBeCloseTo(
+      BALL.maximumLinearSpeed.value,
+      8,
+    );
   });
 
   it('keeps the ball above the floor contact plane', () => {
