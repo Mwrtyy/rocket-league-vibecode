@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -14,8 +14,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
       - uses: pnpm/action-setup@v4
         with:
           version: 10.15.1
@@ -23,16 +21,6 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --frozen-lockfile
-      - name: Apply asserted hot-loop refactor
-        if: github.event_name == 'pull_request' && hashFiles('.github/refactor_hot_loop.py') != ''
-        run: |
-          python3 .github/refactor_hot_loop.py
-          pnpm format
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add --all
-          git commit -m "perf: remove hot-loop deep clones and transient vectors"
-          git push origin HEAD:${{ github.head_ref }}
       - run: mkdir -p reports
       - id: lint
         continue-on-error: true
