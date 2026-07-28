@@ -7,6 +7,6 @@
     "declarationMap": false,
     "sourceMap": false
   },
-  "include": ["apps/**/*.ts", "packages/**/*.ts", "*.ts", "*.mts"],
+  "include": ["apps/**/*.ts", "packages/**/*.ts", "types/**/*.d.ts", "*.ts", "*.mts"],
   "exclude": ["**/dist/**", "**/node_modules/**"]
 }
