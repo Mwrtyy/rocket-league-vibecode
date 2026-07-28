@@ -1,3 +1,4 @@
+export * from './arena-collision.js';
 export * from './constants/arena.js';
 export * from './constants/ball.js';
 export * from './constants/boost.js';

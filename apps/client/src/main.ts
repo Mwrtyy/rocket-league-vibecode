@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import {
-  ARENA,
   BALL,
   BOOST_PAD_LAYOUT,
   CAR,
@@ -10,6 +9,7 @@ import {
   createInterpolatedGameState,
   type PlayerInputFrame,
 } from '@aether/simulation';
+import { addArenaBoundaryVisuals } from './arena-visual.js';
 import './style.css';
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -90,43 +90,7 @@ centerCircle.rotation.x = -Math.PI / 2;
 centerCircle.position.y = 1.6;
 scene.add(centerCircle);
 
-const wallMaterial = new THREE.MeshStandardMaterial({
-  color: 0x102b3a,
-  roughness: 0.42,
-  metalness: 0.38,
-  transparent: true,
-  opacity: 0.72,
-});
-for (const x of [-4096, 4096]) {
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(64, 700, 10240), wallMaterial);
-  wall.position.set(x, 350, 0);
-  wall.receiveShadow = true;
-  scene.add(wall);
-}
-
-const goalSideWidth = (8192 - ARENA.goalHalfWidth.value * 2) * 0.5;
-const goalTopHeight = 700 - ARENA.goalHeight.value;
-for (const z of [-5120, 5120]) {
-  for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(goalSideWidth, 700, 64), wallMaterial);
-    wall.position.set(side * (ARENA.goalHalfWidth.value + goalSideWidth * 0.5), 350, z);
-    scene.add(wall);
-  }
-  const top = new THREE.Mesh(
-    new THREE.BoxGeometry(ARENA.goalHalfWidth.value * 2, goalTopHeight, 64),
-    wallMaterial,
-  );
-  top.position.set(0, ARENA.goalHeight.value + goalTopHeight * 0.5, z);
-  scene.add(top);
-
-  const goalFloor = new THREE.Mesh(
-    new THREE.PlaneGeometry(ARENA.goalHalfWidth.value * 2, ARENA.goalDepth.value),
-    new THREE.MeshStandardMaterial({ color: 0x071821, roughness: 0.8, metalness: 0.1 }),
-  );
-  goalFloor.rotation.x = -Math.PI / 2;
-  goalFloor.position.set(0, 1, z + Math.sign(z) * ARENA.goalDepth.value * 0.5);
-  scene.add(goalFloor);
-}
+addArenaBoundaryVisuals(scene);
 
 const padMeshes = BOOST_PAD_LAYOUT.map((pad) => {
   const radius = pad.isLarge ? 92 : 55;

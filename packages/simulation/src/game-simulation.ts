@@ -10,6 +10,7 @@ import {
   wrapRadians,
   type Vec3,
 } from '@aether/shared';
+import { ArenaCollisionResolver } from './arena-collision.js';
 import { ARENA } from './constants/arena.js';
 import { BALL } from './constants/ball.js';
 import { BOOST, BOOST_PAD_LAYOUT } from './constants/boost.js';
@@ -99,6 +100,7 @@ export function createGameViewState(): GameViewState {
 
 export class GameSimulation {
   private current: SimulationState;
+  private readonly arenaCollision = new ArenaCollisionResolver();
   private readonly previous: PreviousTransforms = {
     ballPosition: { x: 0, y: 0, z: 0 },
     carPosition: { x: 0, y: 0, z: 0 },
@@ -413,31 +415,16 @@ export class GameSimulation {
   }
 
   private resolveCarArena(car: CarState): void {
-    car.grounded = false;
-    if (car.position.z <= CAR_HALF_HEIGHT && car.linearVelocity.z <= 0) {
-      car.position.z = CAR_HALF_HEIGHT;
-      car.linearVelocity.z = 0;
-      car.grounded = true;
-    }
-    const ceiling = WORLD.ceilingZ.value - CAR_HALF_HEIGHT;
-    if (car.position.z > ceiling) {
-      car.position.z = ceiling;
-      if (car.linearVelocity.z > 0) car.linearVelocity.z *= -0.1;
-    }
-    const side = WORLD.sideWallX.value - CAR_HALF_WIDTH;
-    if (Math.abs(car.position.x) > side) {
-      car.position.x = Math.sign(car.position.x) * side;
-      if (Math.sign(car.linearVelocity.x) === Math.sign(car.position.x)) {
-        car.linearVelocity.x *= -0.15;
-      }
-    }
-    const back = WORLD.backWallY.value - CAR_HALF_LENGTH;
-    if (Math.abs(car.position.y) > back) {
-      car.position.y = Math.sign(car.position.y) * back;
-      if (Math.sign(car.linearVelocity.y) === Math.sign(car.position.y)) {
-        car.linearVelocity.y *= -0.15;
-      }
-    }
+    const contact = this.arenaCollision.resolveBox(
+      car.position,
+      car.linearVelocity,
+      car.rotation.yaw,
+      CAR_HALF_WIDTH,
+      CAR_HALF_LENGTH,
+      CAR_HALF_HEIGHT,
+      0,
+    );
+    car.grounded = contact.maximumUpNormal > 0.35;
   }
 
   private integrateBall(dt: number): void {
@@ -447,38 +434,14 @@ export class GameSimulation {
     clampMagnitude(ball.angularVelocity, BALL.maximumAngularSpeed.value);
     addScaledVec3(ball.position, ball.linearVelocity, dt);
 
-    if (ball.position.z < BALL_FLOOR_Z) {
-      ball.position.z = BALL_FLOOR_Z;
-      if (ball.linearVelocity.z < 0) {
-        ball.linearVelocity.z = -ball.linearVelocity.z * BALL.restitution.value;
-      }
-      if (Math.abs(ball.linearVelocity.z) < 8) ball.linearVelocity.z = 0;
-    }
-    const ceiling = WORLD.ceilingZ.value - BALL.radius.value;
-    if (ball.position.z > ceiling) {
-      ball.position.z = ceiling;
-      if (ball.linearVelocity.z > 0) {
-        ball.linearVelocity.z *= -BALL.restitution.value;
-      }
-    }
-    const side = WORLD.sideWallX.value - BALL.radius.value;
-    if (Math.abs(ball.position.x) > side) {
-      ball.position.x = Math.sign(ball.position.x) * side;
-      if (Math.sign(ball.linearVelocity.x) === Math.sign(ball.position.x)) {
-        ball.linearVelocity.x *= -BALL.restitution.value;
-      }
-    }
-    const withinGoalOpening =
-      Math.abs(ball.position.x) <= ARENA.goalHalfWidth.value - BALL.radius.value &&
-      ball.position.z <= ARENA.goalHeight.value - BALL.radius.value;
-    const back = withinGoalOpening
-      ? WORLD.backWallY.value + ARENA.goalDepth.value - BALL.radius.value
-      : WORLD.backWallY.value - BALL.radius.value;
-    if (Math.abs(ball.position.y) > back) {
-      ball.position.y = Math.sign(ball.position.y) * back;
-      if (Math.sign(ball.linearVelocity.y) === Math.sign(ball.position.y)) {
-        ball.linearVelocity.y *= -BALL.restitution.value;
-      }
+    const contact = this.arenaCollision.resolveSphere(
+      ball.position,
+      ball.linearVelocity,
+      BALL.radius.value,
+      BALL.restitution.value,
+    );
+    if (contact.maximumUpNormal > 0.95 && Math.abs(ball.linearVelocity.z) < 8) {
+      ball.linearVelocity.z = 0;
     }
   }
 

@@ -25,7 +25,10 @@ Two paths exist intentionally:
 `GameSimulation` currently implements:
 
 - gravity and magnitude-based linear/angular speed caps;
-- ball floor, side-wall, ceiling, back-wall and goal-interior constraints;
+- an allocation-free octagonal arena solver with published side, back and 45-degree corner planes;
+- analytic floor-wall and ceiling-wall quarter curves;
+- goal-mouth fit checks, solid lower post/crossbar regions and constrained goal interiors;
+- oriented car-box support against side, back and diagonal planes;
 - throttle, reverse, braking, coasting, boost and speed-dependent steering;
 - lateral grip and reduced handbrake grip;
 - jump hold, second jump, directional dodge and basic aerial torque;
@@ -34,11 +37,27 @@ Two paths exist intentionally:
 - deterministic boost-pad pickup and respawn;
 - kickoff, regulation clock, goals, zero-second state and overtime.
 
+## Arena collision model
+
+The horizontal standard-arena boundary is represented by the intersection of these verified half-spaces:
+
+```text
+|x| <= 4096
+|y| <= 5120
+|x| + |y| <= 8064
+```
+
+The last constraint creates the four published 45-degree corner planes. Straight-to-diagonal transition tests assert zero positional gap and consistent signed distance on both sides of every seam.
+
+Near a wall, floor and ceiling contacts are resolved through analytic quarter-ellipse offsets. A sphere uses equal horizontal and vertical radii, producing a true offset quarter-circle. The car uses yaw-oriented horizontal box support and its physical half-height, producing endpoint-correct ramp support without replacing the future four-wheel model.
+
+The goal opening only admits a body when its complete horizontal and vertical support fits. Once beyond the goal line, goal side walls, ceiling, floor and depth are resolved independently. Low post approaches naturally meet the floor-wall ramp before the vertical plane.
+
 ## Accuracy boundaries
 
-The current car controller is a functional force model, not yet the final four-wheel solver. Grounding is currently floor-relative and the physical box uses yaw for ball contact. Therefore wall driving, ceiling driving, per-wheel suspension, pitch/roll-aware hitbox contact and recovery behavior remain incomplete.
+The current car controller remains a functional force model, not the final four-wheel solver. Ramp grounding is supported, but permanent wall/ceiling driving, gravity-relative suspension, per-wheel contact, pitch/roll-aware arena support and recovery behavior remain incomplete.
 
-The rectangular arena constraints and goal opening are functional. Curved floor-to-wall transitions, rounded corners, backboard curves, post/crossbar collision and seam-continuity validation remain the next geometry milestone.
+The horizontal side/back/corner planes are verified. The current 256 uu floor-wall and ceiling-wall radii are explicitly temporary functional baselines pending measurement against the standard arena collision mesh. Goal interiors are box-constrained; cylindrical post/crossbar profiles, backboard-specific curves and exact goal ramps still require measured geometry.
 
 Ball–car response is deterministic but still tuned rather than trajectory-calibrated. The restitution, tangent spin and dodge amplification values must be compared against disclosed reference experiments before their confidence can be raised.
 
