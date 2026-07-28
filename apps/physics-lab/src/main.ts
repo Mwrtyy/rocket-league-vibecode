@@ -61,7 +61,8 @@ scene.add(ballMesh);
 
 const trailGeometry = new THREE.BufferGeometry();
 const trailPositions = new Float32Array(3 * 512);
-trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+const trailPositionAttribute = new THREE.BufferAttribute(trailPositions, 3);
+trailGeometry.setAttribute('position', trailPositionAttribute);
 trailGeometry.setDrawRange(0, 0);
 const trail = new THREE.Line(trailGeometry, new THREE.LineBasicMaterial({ color: 0x65ddff }));
 scene.add(trail);
@@ -91,7 +92,7 @@ function appendTrail(x: number, y: number, z: number): void {
   trailPositions[offset + 1] = z;
   trailPositions[offset + 2] = -y;
   trailCount = Math.min(512, trailCount + 1);
-  trailGeometry.attributes.position.needsUpdate = true;
+  trailPositionAttribute.needsUpdate = true;
   trailGeometry.setDrawRange(0, trailCount);
 }
 
