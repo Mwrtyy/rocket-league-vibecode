@@ -1,6 +1,11 @@
 import { performance } from 'node:perf_hooks';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { PROTOCOL_VERSION, parseClientMessage, type ServerMessage } from '@aether/networking';
+import {
+  MAX_CLIENT_MESSAGE_LENGTH,
+  PROTOCOL_VERSION,
+  parseClientMessage,
+  type ServerMessage,
+} from '@aether/networking';
 import {
   FixedStepRunner,
   GameSimulation,
@@ -9,11 +14,17 @@ import {
 } from '@aether/simulation';
 
 const port = Number(process.env.PORT ?? 8080);
-const wss = new WebSocketServer({ port });
+const wss = new WebSocketServer({
+  port,
+  maxPayload: MAX_CLIENT_MESSAGE_LENGTH,
+  perMessageDeflate: false,
+});
 const simulation = new GameSimulation(undefined, { matchMode: true });
 const lastSequence = new WeakMap<WebSocket, number>();
 const pendingInput = new WeakMap<WebSocket, PlayerInputFrame>();
+const rateWindows = new WeakMap<WebSocket, { startedAt: number; messages: number }>();
 let driver: WebSocket | null = null;
+let authoritativeTick = simulation.getState().tick;
 
 function send(socket: WebSocket, message: ServerMessage): void {
   if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(message));
@@ -41,12 +52,35 @@ function selectNextDriver(): void {
   }
 }
 
+function consumeMessageBudget(socket: WebSocket): boolean {
+  const now = performance.now();
+  const current = rateWindows.get(socket);
+  if (current === undefined || now - current.startedAt >= 1000) {
+    rateWindows.set(socket, { startedAt: now, messages: 1 });
+    return true;
+  }
+  current.messages += 1;
+  return current.messages <= 300;
+}
+
 wss.on('connection', (socket) => {
   lastSequence.set(socket, -1);
+  rateWindows.set(socket, { startedAt: performance.now(), messages: 0 });
   if (driver === null) driver = socket;
-  send(socket, { type: 'welcome', protocol: PROTOCOL_VERSION, tick: simulation.getState().tick });
+  send(socket, { type: 'welcome', protocol: PROTOCOL_VERSION, tick: authoritativeTick });
 
   socket.on('message', (data) => {
+    if (!consumeMessageBudget(socket)) {
+      send(socket, {
+        type: 'error',
+        protocol: PROTOCOL_VERSION,
+        code: 'RATE_LIMIT',
+        message: 'Input message rate exceeded the accepted gameplay budget.',
+      });
+      socket.close(1008, 'Input rate exceeded');
+      return;
+    }
+
     const message = parseClientMessage(data.toString());
     if (message === null) {
       send(socket, {
@@ -59,7 +93,6 @@ wss.on('connection', (socket) => {
     }
     if (message.type !== 'input') return;
 
-    const stateTick = simulation.getState().tick;
     const previous = lastSequence.get(socket) ?? -1;
     if (message.frame.sequence <= previous) {
       send(socket, {
@@ -70,7 +103,10 @@ wss.on('connection', (socket) => {
       });
       return;
     }
-    if (message.frame.tick < stateTick - 240 || message.frame.tick > stateTick + 240) {
+    if (
+      message.frame.tick < authoritativeTick - 240 ||
+      message.frame.tick > authoritativeTick + 240
+    ) {
       send(socket, {
         type: 'error',
         protocol: PROTOCOL_VERSION,
@@ -86,6 +122,7 @@ wss.on('connection', (socket) => {
 
   socket.on('close', () => {
     pendingInput.delete(socket);
+    rateWindows.delete(socket);
     if (driver === socket) selectNextDriver();
   });
 });
@@ -93,7 +130,8 @@ wss.on('connection', (socket) => {
 const runner = new FixedStepRunner(() => {
   const input = driver === null ? NEUTRAL_INPUT : (pendingInput.get(driver) ?? NEUTRAL_INPUT);
   simulation.step(input);
-  if (simulation.getState().tick % 4 === 0) broadcastSnapshot();
+  authoritativeTick += 1;
+  if (authoritativeTick % 4 === 0) broadcastSnapshot();
 });
 
 let previousTime = performance.now();
