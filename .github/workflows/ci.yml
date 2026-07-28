@@ -18,8 +18,39 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --frozen-lockfile=false
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
-      - run: pnpm format:check
+      - run: mkdir -p reports
+      - id: lint
+        continue-on-error: true
+        run: pnpm lint > reports/lint.log 2>&1
+      - id: typecheck
+        continue-on-error: true
+        run: pnpm typecheck > reports/typecheck.log 2>&1
+      - id: test
+        continue-on-error: true
+        run: pnpm test > reports/test.log 2>&1
+      - id: build
+        continue-on-error: true
+        run: pnpm build > reports/build.log 2>&1
+      - id: format
+        continue-on-error: true
+        run: pnpm format:check > reports/format.log 2>&1
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-reports
+          path: reports
+          if-no-files-found: error
+      - if: always()
+        env:
+          LINT: ${{ steps.lint.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          TEST: ${{ steps.test.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          FORMAT: ${{ steps.format.outcome }}
+        run: |
+          printf 'lint=%s\ntypecheck=%s\ntest=%s\nbuild=%s\nformat=%s\n' "$LINT" "$TYPECHECK" "$TEST" "$BUILD" "$FORMAT"
+          test "$LINT" = success
+          test "$TYPECHECK" = success
+          test "$TEST" = success
+          test "$BUILD" = success
+          test "$FORMAT" = success
