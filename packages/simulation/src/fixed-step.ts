@@ -21,9 +21,10 @@ export class FixedStepRunner {
     this.accumulator += safeElapsed;
     let steps = 0;
 
-    while (this.accumulator >= this.fixedDt && steps < this.maxCatchUpSteps) {
+    const comparisonEpsilon = this.fixedDt * 1e-9;
+    while (this.accumulator + comparisonEpsilon >= this.fixedDt && steps < this.maxCatchUpSteps) {
       this.step(this.fixedDt);
-      this.accumulator -= this.fixedDt;
+      this.accumulator = Math.max(0, this.accumulator - this.fixedDt);
       steps += 1;
     }
 
