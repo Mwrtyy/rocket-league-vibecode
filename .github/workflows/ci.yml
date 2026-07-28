@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -14,6 +14,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       - uses: pnpm/action-setup@v4
         with:
           version: 10.15.1
@@ -21,6 +23,17 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --frozen-lockfile
+      - name: Normalize dependency lock formatting
+        if: github.event_name == 'pull_request'
+        run: |
+          pnpm exec prettier --write pnpm-lock.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml
+          if ! git diff --cached --quiet; then
+            git commit -m "style: format dependency lockfile"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
       - run: mkdir -p reports
       - id: lint
         continue-on-error: true
