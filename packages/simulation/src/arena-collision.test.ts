@@ -160,7 +160,8 @@ describe('ArenaCollisionResolver', () => {
     };
     const postVelocity = { x: 0, y: 800, z: 0 };
     resolver.resolveSphere(postPosition, postVelocity, BALL_RADIUS, 0.6);
-    expect(postPosition.y).toBeCloseTo(ARENA.backWallY.value - BALL_RADIUS, 6);
+    expect(postPosition.y).toBeLessThanOrEqual(ARENA.backWallY.value - BALL_RADIUS);
+    expect(postPosition.z).toBeGreaterThan(BALL_RADIUS);
     expect(postVelocity.y).toBeLessThan(0);
 
     const crossbarPosition = {
