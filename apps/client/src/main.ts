@@ -178,7 +178,8 @@ function sampleInput(): PlayerInputFrame {
   const keyboardThrottle = axis('KeyS', 'KeyW');
   const keyboardSteer = axis('KeyA', 'KeyD');
   const keyboardPitch = axis('KeyW', 'KeyS');
-  const togglePressed = keys.has('KeyC') || navigator.getGamepads().some((item) => item?.buttons[3]?.pressed);
+  const togglePressed =
+    keys.has('KeyC') || navigator.getGamepads().some((item) => item?.buttons[3]?.pressed);
   if (togglePressed && !lastCameraToggle) ballCamera = !ballCamera;
   lastCameraToggle = togglePressed;
 
@@ -193,8 +194,8 @@ function sampleInput(): PlayerInputFrame {
     yaw: pad.yaw ?? keyboardSteer,
     roll: pad.roll ?? axis('KeyQ', 'KeyE'),
     jump: pad.jump ?? keys.has('Space'),
-    boost: pad.boost ?? keys.has('ShiftLeft') || keys.has('ShiftRight'),
-    handbrake: pad.handbrake ?? keys.has('ControlLeft') || keys.has('ControlRight'),
+    boost: pad.boost ?? (keys.has('ShiftLeft') || keys.has('ShiftRight')),
+    handbrake: pad.handbrake ?? (keys.has('ControlLeft') || keys.has('ControlRight')),
     ballCam: ballCamera,
   };
 }
@@ -205,7 +206,11 @@ function applyDeadzone(value: number, deadzone: number): number {
 }
 
 function resetPlayfield(): void {
-  simulation.setCar({ x: 0, y: -1200, z: CAR.hitboxHeight.value * 0.5 }, { x: 0, y: 0, z: 0 }, 0);
+  simulation.setCar(
+    { x: 0, y: -1200, z: CAR.hitboxHeight.value * 0.5 },
+    { x: 0, y: 0, z: 0 },
+    0,
+  );
   simulation.setBall({ x: 0, y: 0, z: BALL.radius.value }, { x: 0, y: 0, z: 0 });
 }
 
@@ -221,8 +226,16 @@ function frame(now: number): void {
   const interpolated = simulation.interpolate(stats.alpha);
   const state = simulation.getState();
 
-  ballMesh.position.set(interpolated.ballPosition.x, interpolated.ballPosition.z, -interpolated.ballPosition.y);
-  carGroup.position.set(interpolated.carPosition.x, interpolated.carPosition.z, -interpolated.carPosition.y);
+  ballMesh.position.set(
+    interpolated.ballPosition.x,
+    interpolated.ballPosition.z,
+    -interpolated.ballPosition.y,
+  );
+  carGroup.position.set(
+    interpolated.carPosition.x,
+    interpolated.carPosition.z,
+    -interpolated.carPosition.y,
+  );
   carGroup.rotation.order = 'YXZ';
   carGroup.rotation.set(-interpolated.carPitch, -interpolated.carYaw, interpolated.carRoll);
 
@@ -237,7 +250,11 @@ function frame(now: number): void {
   camera.position.lerp(desiredCamera, cameraBlend);
 
   if (ballCamera) {
-    lookTarget.set(interpolated.ballPosition.x, interpolated.ballPosition.z, -interpolated.ballPosition.y);
+    lookTarget.set(
+      interpolated.ballPosition.x,
+      interpolated.ballPosition.z,
+      -interpolated.ballPosition.y,
+    );
   } else {
     lookTarget.set(
       interpolated.carPosition.x + forwardX * 500,
@@ -248,14 +265,22 @@ function frame(now: number): void {
   cameraTarget.lerp(lookTarget, 1 - Math.exp(-elapsed * 11));
   camera.lookAt(cameraTarget);
 
-  const speed = Math.hypot(state.car.linearVelocity.x, state.car.linearVelocity.y, state.car.linearVelocity.z);
+  const speed = Math.hypot(
+    state.car.linearVelocity.x,
+    state.car.linearVelocity.y,
+    state.car.linearVelocity.z,
+  );
   const speedElement = document.querySelector<HTMLElement>('#speed');
   const boostElement = document.querySelector<HTMLElement>('#boost-value');
   const stateElement = document.querySelector<HTMLElement>('#state');
   if (speedElement) speedElement.textContent = `${Math.round(speed * 0.036)} KM/H`;
   if (boostElement) boostElement.textContent = String(Math.round(state.car.boost));
   if (stateElement) {
-    stateElement.textContent = state.car.supersonic ? 'SUPERSONIC' : state.car.grounded ? 'GROUNDED' : 'AIRBORNE';
+    stateElement.textContent = state.car.supersonic
+      ? 'SUPERSONIC'
+      : state.car.grounded
+        ? 'GROUNDED'
+        : 'AIRBORNE';
   }
 
   renderer.render(scene, camera);
