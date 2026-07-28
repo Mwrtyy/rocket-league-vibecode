@@ -4,9 +4,19 @@ import { FIXED_DT } from './constants/world.js';
 import { GameSimulation } from './game-simulation.js';
 import { hashSimulationState } from './hash.js';
 import { NEUTRAL_INPUT, type PlayerInputFrame } from './input.js';
+import { createInitialState } from './state.js';
 
 function frame(overrides: Partial<PlayerInputFrame> = {}): PlayerInputFrame {
   return { ...NEUTRAL_INPUT, ...overrides };
+}
+
+function simulationWithoutPads(): GameSimulation {
+  const initial = createInitialState(false);
+  for (const pad of initial.boostPads) {
+    pad.active = false;
+    pad.respawnSeconds = 999;
+  }
+  return new GameSimulation(initial);
 }
 
 function horizontalSpeed(simulation: GameSimulation): number {
@@ -16,7 +26,7 @@ function horizontalSpeed(simulation: GameSimulation): number {
 
 describe('GameSimulation car core', () => {
   it('accelerates toward the measured no-boost top speed without exceeding it', () => {
-    const simulation = new GameSimulation();
+    const simulation = simulationWithoutPads();
     simulation.setBall({ x: 3000, y: 0, z: 91.25 }, { x: 0, y: 0, z: 0 });
     for (let tick = 0; tick < 480; tick += 1) simulation.step(frame({ throttle: 1 }));
     expect(horizontalSpeed(simulation)).toBeGreaterThan(1380);
@@ -24,7 +34,7 @@ describe('GameSimulation car core', () => {
   });
 
   it('consumes boost at the sourced rate and remains under the total speed cap', () => {
-    const simulation = new GameSimulation();
+    const simulation = simulationWithoutPads();
     simulation.setBall({ x: 3000, y: 0, z: 91.25 }, { x: 0, y: 0, z: 0 });
     for (let tick = 0; tick < 120; tick += 1) {
       simulation.step(frame({ throttle: 1, boost: true }));
@@ -35,7 +45,7 @@ describe('GameSimulation car core', () => {
   });
 
   it('uses braking acceleration when throttle opposes forward motion', () => {
-    const simulation = new GameSimulation();
+    const simulation = simulationWithoutPads();
     simulation.setBall({ x: 3000, y: 0, z: 91.25 }, { x: 0, y: 0, z: 0 });
     for (let tick = 0; tick < 120; tick += 1) simulation.step(frame({ throttle: 1 }));
     const before = simulation.getState().car.linearVelocity.y;
@@ -45,7 +55,7 @@ describe('GameSimulation car core', () => {
   });
 
   it('supports a held first jump and leaves the floor', () => {
-    const simulation = new GameSimulation();
+    const simulation = simulationWithoutPads();
     for (let tick = 0; tick < 13; tick += 1) simulation.step(frame({ jump: true }));
     const car = simulation.getState().car;
     expect(car.grounded).toBe(false);
@@ -54,7 +64,7 @@ describe('GameSimulation car core', () => {
   });
 
   it('converts a second jump with directional input into an emergent dodge impulse', () => {
-    const simulation = new GameSimulation();
+    const simulation = simulationWithoutPads();
     simulation.step(frame({ jump: true }));
     simulation.step(frame({ jump: false }));
     for (let tick = 0; tick < 20; tick += 1) simulation.step(frame());
@@ -66,7 +76,7 @@ describe('GameSimulation car core', () => {
   });
 
   it('transfers car momentum into the ball through an oriented hitbox contact', () => {
-    const simulation = new GameSimulation();
+    const simulation = simulationWithoutPads();
     simulation.setCar({ x: 0, y: 0, z: 18.08 }, { x: 0, y: 1000, z: 0 }, 0);
     simulation.setBall({ x: 0, y: 150, z: 91.25 }, { x: 0, y: 0, z: 0 });
     for (let tick = 0; tick < 20; tick += 1) simulation.step(frame({ throttle: 1 }));
@@ -76,8 +86,8 @@ describe('GameSimulation car core', () => {
   });
 
   it('produces the same complete-state hash for an identical input stream', () => {
-    const first = new GameSimulation();
-    const second = new GameSimulation();
+    const first = simulationWithoutPads();
+    const second = simulationWithoutPads();
     for (let tick = 0; tick < 600; tick += 1) {
       const input = frame({
         sequence: tick,
