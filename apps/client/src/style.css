@@ -1,0 +1,7 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #f4fbff; background: #04070d; }
+* { box-sizing: border-box; }
+body { margin: 0; overflow: hidden; }
+canvas { display: block; }
+.hud { position: fixed; inset: 0; pointer-events: none; display: grid; grid-template-rows: auto 1fr auto; padding: 24px; }
+.brand { justify-self: start; padding: 9px 13px; border: 1px solid rgba(118, 225, 255, .3); border-radius: 999px; background: rgba(4, 10, 18, .66); letter-spacing: .16em; font-weight: 800; font-size: 12px; }
+.status { align-self: end; justify-self: center; padding: 12px 18px; border-radius: 14px; background: rgba(4,10,18,.76); color: #a9bed0; }

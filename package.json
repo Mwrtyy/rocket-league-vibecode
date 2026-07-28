@@ -15,7 +15,7 @@
     "dev:physics": "pnpm --filter @aether/physics-lab dev",
     "build": "pnpm -r build",
     "test": "vitest run",
-    "test:physics": "vitest run packages/simulation/src/**/*.test.ts",
+    "test:physics": "vitest run packages/simulation/src/**/*.test.ts packages/physics-adapter/src/**/*.test.ts",
     "test:e2e": "playwright test",
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
@@ -25,14 +25,13 @@
   "devDependencies": {
     "@eslint/js": "10.7.0",
     "@playwright/test": "1.61.1",
-    "@types/node": "24.1.0",
-    "@typescript-eslint/eslint-plugin": "8.38.0",
-    "@typescript-eslint/parser": "8.38.0",
+    "@types/node": "26.1.1",
     "eslint": "10.7.0",
     "globals": "16.3.0",
     "prettier": "3.6.2",
-    "tsx": "4.20.3",
+    "tsx": "4.22.5",
     "typescript": "7.0.2",
+    "typescript-eslint": "8.65.0",
     "vitest": "4.1.10"
   }
 }

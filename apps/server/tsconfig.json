@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist", "types": ["node"], "composite": true },
+  "references": [{ "path": "../../packages/simulation" }, { "path": "../../packages/networking" }],
+  "include": ["src"]
+}
