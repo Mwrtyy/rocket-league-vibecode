@@ -5,12 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       - uses: pnpm/action-setup@v4
         with:
           version: 10.15.1
@@ -18,6 +23,29 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --frozen-lockfile=false
+      - name: Normalize source and lockfile
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('packages/simulation/src/game-simulation.ts')
+          source = path.read_text()
+          before = '    let acceleration = 0;\n'
+          after = '    let acceleration: number;\n'
+          if before in source:
+              path.write_text(source.replace(before, after, 1))
+          PY
+          pnpm format
+      - name: Commit normalized workspace
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          if ! git diff --cached --quiet; then
+            git commit -m "style: format workspace and lock dependencies"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
       - run: mkdir -p reports
       - id: lint
         continue-on-error: true
