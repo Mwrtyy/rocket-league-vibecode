@@ -23,15 +23,15 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --frozen-lockfile
-      - name: Apply asserted arena integration
-        if: github.event_name == 'pull_request' && hashFiles('.github/integrate_arena_collision.py') != ''
+      - name: Apply asserted arena visual integration
+        if: github.event_name == 'pull_request' && hashFiles('.github/integrate_arena_visual.py') != ''
         run: |
-          python3 .github/integrate_arena_collision.py
+          python3 .github/integrate_arena_visual.py
           pnpm format
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --all
-          git commit -m "feat(arena): integrate curved octagonal collision into gameplay"
+          git commit -m "feat(client): align arena visuals with analytic collision"
           git push origin HEAD:${{ github.head_ref }}
       - run: mkdir -p reports
       - id: lint
