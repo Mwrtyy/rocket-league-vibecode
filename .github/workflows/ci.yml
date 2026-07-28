@@ -23,15 +23,15 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --frozen-lockfile
-      - name: Apply asserted arena visual integration
-        if: github.event_name == 'pull_request' && hashFiles('.github/integrate_arena_visual.py') != ''
+      - name: Finalize arena branch
+        if: github.event_name == 'pull_request' && hashFiles('.github/finalize_arena_branch.py') != ''
         run: |
-          python3 .github/integrate_arena_visual.py
+          python3 .github/finalize_arena_branch.py
           pnpm format
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --all
-          git commit -m "feat(client): align arena visuals with analytic collision"
+          git commit -m "style: finalize arena collision milestone"
           git push origin HEAD:${{ github.head_ref }}
       - run: mkdir -p reports
       - id: lint
