@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import {
+  ARENA,
   BALL,
+  BOOST_PAD_LAYOUT,
   CAR,
   FixedStepRunner,
   GameSimulation,
@@ -15,15 +17,27 @@ app.innerHTML = `
   <div class="hud">
     <header class="topbar">
       <div class="brand">AETHER STRIKE</div>
-      <div class="mode">FREE PLAY · LOCAL 120 HZ</div>
+      <div class="mode">SOLO MATCH · LOCAL 120 HZ</div>
     </header>
-    <div class="telemetry">
-      <span id="speed">0 KM/H</span>
-      <span id="state">GROUNDED</span>
+    <div class="scoreboard">
+      <strong id="blue-score" class="team-score blue">0</strong>
+      <div class="match-time"><strong id="clock">5:00</strong><small id="phase">KICKOFF</small></div>
+      <strong id="orange-score" class="team-score orange">0</strong>
     </div>
-    <div class="boost"><span id="boost-value">100</span><small>BOOST</small></div>
-    <div class="controls">WASD drive · Space jump/dodge · Shift boost · Ctrl powerslide · C ball camera · R reset</div>
+    <div id="announcement" class="announcement" aria-live="polite"></div>
+    <div class="telemetry"><span id="speed">0 KM/H</span><span id="state">GROUNDED</span></div>
+    <div class="boost"><span id="boost-value">33</span><small>BOOST</small></div>
+    <div class="controls">WASD drive · Space jump/dodge · Shift boost · Ctrl powerslide · C ball camera · R restart</div>
   </div>`;
+
+const speedElement = document.querySelector<HTMLElement>('#speed');
+const boostElement = document.querySelector<HTMLElement>('#boost-value');
+const stateElement = document.querySelector<HTMLElement>('#state');
+const blueScoreElement = document.querySelector<HTMLElement>('#blue-score');
+const orangeScoreElement = document.querySelector<HTMLElement>('#orange-score');
+const clockElement = document.querySelector<HTMLElement>('#clock');
+const phaseElement = document.querySelector<HTMLElement>('#phase');
+const announcementElement = document.querySelector<HTMLElement>('#announcement');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x03070d);
@@ -76,17 +90,58 @@ const wallMaterial = new THREE.MeshStandardMaterial({
   transparent: true,
   opacity: 0.72,
 });
-for (const [width, depth, x, z] of [
-  [64, 10240, -4096, 0],
-  [64, 10240, 4096, 0],
-  [8192, 64, 0, -5120],
-  [8192, 64, 0, 5120],
-] as const) {
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(width, 700, depth), wallMaterial);
-  wall.position.set(x, 350, z);
+for (const x of [-4096, 4096]) {
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(64, 700, 10240), wallMaterial);
+  wall.position.set(x, 350, 0);
   wall.receiveShadow = true;
   scene.add(wall);
 }
+
+const goalSideWidth = (8192 - ARENA.goalHalfWidth.value * 2) * 0.5;
+const goalTopHeight = 700 - ARENA.goalHeight.value;
+for (const z of [-5120, 5120]) {
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(goalSideWidth, 700, 64), wallMaterial);
+    wall.position.set(
+      side * (ARENA.goalHalfWidth.value + goalSideWidth * 0.5),
+      350,
+      z,
+    );
+    scene.add(wall);
+  }
+  const top = new THREE.Mesh(
+    new THREE.BoxGeometry(ARENA.goalHalfWidth.value * 2, goalTopHeight, 64),
+    wallMaterial,
+  );
+  top.position.set(0, ARENA.goalHeight.value + goalTopHeight * 0.5, z);
+  scene.add(top);
+
+  const goalFloor = new THREE.Mesh(
+    new THREE.PlaneGeometry(ARENA.goalHalfWidth.value * 2, ARENA.goalDepth.value),
+    new THREE.MeshStandardMaterial({ color: 0x071821, roughness: 0.8, metalness: 0.1 }),
+  );
+  goalFloor.rotation.x = -Math.PI / 2;
+  goalFloor.position.set(0, 1, z + Math.sign(z) * ARENA.goalDepth.value * 0.5);
+  scene.add(goalFloor);
+}
+
+const padMeshes = BOOST_PAD_LAYOUT.map((pad) => {
+  const radius = pad.isLarge ? 92 : 55;
+  const material = new THREE.MeshStandardMaterial({
+    color: pad.isLarge ? 0xffaa2b : 0x68dfff,
+    emissive: pad.isLarge ? 0xff6a00 : 0x1eb6e8,
+    emissiveIntensity: pad.isLarge ? 2.2 : 1.35,
+    roughness: 0.32,
+    metalness: 0.5,
+    transparent: true,
+    opacity: 0.95,
+  });
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 9, 32), material);
+  mesh.position.set(pad.position.x, 5, -pad.position.y);
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  return mesh;
+});
 
 const ballMesh = new THREE.Mesh(
   new THREE.IcosahedronGeometry(BALL.radius.value, 4),
@@ -133,9 +188,7 @@ for (const [x, z] of [
 }
 scene.add(carGroup);
 
-const simulation = new GameSimulation();
-simulation.setBall({ x: 0, y: 0, z: BALL.radius.value }, { x: 0, y: 0, z: 0 });
-
+const simulation = new GameSimulation(undefined, { matchMode: true });
 const keys = new Set<string>();
 let ballCamera = true;
 let sequence = 0;
@@ -145,7 +198,7 @@ let lastCameraToggle = false;
 addEventListener('keydown', (event) => {
   keys.add(event.code);
   if (event.code === 'Space' || event.code === 'Tab') event.preventDefault();
-  if (event.code === 'KeyR') resetPlayfield();
+  if (event.code === 'KeyR') simulation.resetMatch();
 });
 addEventListener('keyup', (event) => keys.delete(event.code));
 addEventListener('blur', () => keys.clear());
@@ -184,10 +237,9 @@ function sampleInput(): PlayerInputFrame {
   lastCameraToggle = togglePressed;
 
   sequence += 1;
-  const tick = simulation.getState().tick;
   return {
     sequence,
-    tick,
+    tick: simulation.getState().tick,
     throttle: pad.throttle ?? keyboardThrottle,
     steer: pad.steer ?? keyboardSteer,
     pitch: pad.pitch ?? keyboardPitch,
@@ -205,13 +257,10 @@ function applyDeadzone(value: number, deadzone: number): number {
   return Math.sign(value) * ((Math.abs(value) - deadzone) / (1 - deadzone));
 }
 
-function resetPlayfield(): void {
-  simulation.setCar(
-    { x: 0, y: -1200, z: CAR.hitboxHeight.value * 0.5 },
-    { x: 0, y: 0, z: 0 },
-    0,
-  );
-  simulation.setBall({ x: 0, y: 0, z: BALL.radius.value }, { x: 0, y: 0, z: 0 });
+function formatClock(seconds: number): string {
+  const total = Math.max(0, Math.ceil(seconds));
+  const minutes = Math.floor(total / 60);
+  return `${minutes}:${String(total % 60).padStart(2, '0')}`;
 }
 
 const runner = new FixedStepRunner(() => simulation.step(sampleInput()));
@@ -239,6 +288,16 @@ function frame(now: number): void {
   carGroup.rotation.order = 'YXZ';
   carGroup.rotation.set(-interpolated.carPitch, -interpolated.carYaw, interpolated.carRoll);
 
+  for (const padState of state.boostPads) {
+    const mesh = padMeshes[padState.id];
+    if (mesh === undefined) continue;
+    mesh.visible = padState.active;
+    if (padState.active) {
+      const pulse = 1 + Math.sin(now * 0.004 + padState.id) * 0.04;
+      mesh.scale.set(pulse, 1, pulse);
+    }
+  }
+
   const forwardX = Math.sin(interpolated.carYaw);
   const forwardY = Math.cos(interpolated.carYaw);
   desiredCamera.set(
@@ -246,8 +305,7 @@ function frame(now: number): void {
     interpolated.carPosition.z + 310,
     -interpolated.carPosition.y + forwardY * 780,
   );
-  const cameraBlend = 1 - Math.exp(-elapsed * 8.5);
-  camera.position.lerp(desiredCamera, cameraBlend);
+  camera.position.lerp(desiredCamera, 1 - Math.exp(-elapsed * 8.5));
 
   if (ballCamera) {
     lookTarget.set(
@@ -270,9 +328,6 @@ function frame(now: number): void {
     state.car.linearVelocity.y,
     state.car.linearVelocity.z,
   );
-  const speedElement = document.querySelector<HTMLElement>('#speed');
-  const boostElement = document.querySelector<HTMLElement>('#boost-value');
-  const stateElement = document.querySelector<HTMLElement>('#state');
   if (speedElement) speedElement.textContent = `${Math.round(speed * 0.036)} KM/H`;
   if (boostElement) boostElement.textContent = String(Math.round(state.car.boost));
   if (stateElement) {
@@ -281,6 +336,31 @@ function frame(now: number): void {
       : state.car.grounded
         ? 'GROUNDED'
         : 'AIRBORNE';
+  }
+  if (blueScoreElement) blueScoreElement.textContent = String(state.match.blueScore);
+  if (orangeScoreElement) orangeScoreElement.textContent = String(state.match.orangeScore);
+  if (clockElement) {
+    clockElement.textContent = state.match.phase === 'overtime' ? '+0:00' : formatClock(state.match.clockSeconds);
+  }
+  if (phaseElement) phaseElement.textContent = state.match.phase.toUpperCase();
+  if (announcementElement) {
+    if (state.match.phase === 'countdown') {
+      announcementElement.textContent = String(Math.max(1, Math.ceil(state.match.countdownSeconds)));
+      announcementElement.classList.add('visible');
+    } else if (state.match.phase === 'goal') {
+      announcementElement.textContent = `${state.match.lastScorer?.toUpperCase() ?? ''} SCORES`;
+      announcementElement.classList.add('visible');
+    } else if (state.match.phase === 'ended') {
+      const winner = state.match.blueScore > state.match.orangeScore ? 'BLUE' : 'ORANGE';
+      announcementElement.textContent = `${winner} WINS`;
+      announcementElement.classList.add('visible');
+    } else if (state.match.phase === 'overtime') {
+      announcementElement.textContent = 'OVERTIME';
+      announcementElement.classList.add('visible');
+    } else {
+      announcementElement.textContent = '';
+      announcementElement.classList.remove('visible');
+    }
   }
 
   renderer.render(scene, camera);
