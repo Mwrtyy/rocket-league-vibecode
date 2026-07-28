@@ -1,22 +1,26 @@
 # Aether Strike
 
-Aether Strike is an original, clean-room browser game project focused on deterministic, competitive rocket-powered car football. The implementation does **not** contain proprietary game code, branding, models, sounds, or extracted assets.
+Aether Strike is an original, clean-room browser game focused on deterministic, competitive rocket-powered car football. It contains no proprietary source code, branding, models, recordings, or extracted assets from another game.
 
-## Current milestone
+## Current playable build
 
-The repository foundation includes:
+The browser client now runs a complete local solo match on the shared simulation core:
 
-- strict TypeScript pnpm monorepo;
-- fixed 120 Hz accumulator loop with bounded catch-up and render interpolation;
-- centralized unit conversion (`1 uu = 1 cm = 0.01 m`);
-- sourced gameplay constants with status and confidence metadata;
-- deterministic reference ball simulation and quantized state hashing;
-- Rapier 3D adapter with CCD and explicit timestep configuration;
-- browser physics laboratory with trajectory export;
-- browser client shell and authoritative WebSocket server skeleton;
-- Vitest trajectory/determinism tests, Playwright smoke test, ESLint, Prettier and CI.
+- fixed 120 Hz gameplay with render interpolation;
+- throttle, reverse, braking, coasting and piecewise speed-dependent steering;
+- powerslide grip reduction, boost consumption and total speed caps;
+- first jump, held jump, neutral double jump, directional dodge and basic aerial rotation;
+- oriented car hitbox contact with ball momentum and spin transfer;
+- floor, wall, ceiling and goal-volume ball collision;
+- five-minute regulation, three-second kickoffs, goals, score, zero-second continuation and overtime;
+- all 34 standard boost-pad positions, grants and respawn timers;
+- keyboard and browser Gamepad API controls;
+- chase camera and ball-camera switching;
+- authoritative Node.js WebSocket server using the same simulation package;
+- deterministic full-state hashes and mechanical regression tests;
+- standalone Three.js/Rapier physics laboratory.
 
-This is an engineering foundation, not a completed game. Car suspension, full arena collision, match rules, prediction/reconciliation, original production assets and advanced mechanics remain future milestones and are tracked precisely in the documentation.
+The project is playable but is not yet fidelity-complete. The next major physics work is a four-wheel suspension/contact model, curved arena surfaces, gravity-relative wall driving, full 3D car hitbox orientation, measured jump/dodge trajectories and calibrated ball-contact response.
 
 ## Requirements
 
@@ -39,14 +43,27 @@ pnpm lint
 pnpm typecheck
 ```
 
+## Default controls
+
+| Action | Keyboard | Controller concept |
+|---|---|---|
+| Throttle / reverse | `W` / `S` | right / left trigger |
+| Steer | `A` / `D` | left stick |
+| Jump / dodge | `Space` | south face button |
+| Boost | `Shift` | east face button |
+| Powerslide | `Ctrl` | west face button |
+| Air roll | `Q` / `E` | bumpers |
+| Ball camera | `C` | north face button |
+| Restart match | `R` | keyboard only |
+
 ## Applications
 
-- `apps/client`: low-latency game client foundation.
-- `apps/server`: authoritative 120 Hz WebSocket simulation host.
-- `apps/physics-lab`: deterministic experiment runner and telemetry viewer.
+- `apps/client`: playable local match and low-latency renderer/input layer.
+- `apps/server`: server-authoritative match host at 120 Hz.
+- `apps/physics-lab`: deterministic experiments, telemetry and trajectory export.
 
 ## Architecture
 
-The simulation owns gameplay time. Rendering and browser events never advance physics directly. Inputs are sampled into sequence-numbered frames and consumed by fixed ticks. Public gameplay values remain in unreal-style units; only the physics adapter converts to metres.
+The simulation owns gameplay time. Rendering and browser events never advance physics directly. Inputs are sampled into sequence-numbered frames and consumed by fixed ticks. Public gameplay values remain in `uu`; only the physics adapter converts to metres.
 
-See [ARCHITECTURE.md](docs/ARCHITECTURE.md), [PHYSICS.md](docs/PHYSICS.md), and [CONSTANTS.md](docs/CONSTANTS.md).
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md), [PHYSICS.md](docs/PHYSICS.md), [CONSTANTS.md](docs/CONSTANTS.md), and [NETWORKING.md](docs/NETWORKING.md).
