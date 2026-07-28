@@ -3,12 +3,10 @@ import {
   clamp,
   clampMagnitude,
   cloneVec3,
-  dotVec3,
+  lerp,
   lerpAngle,
-  lerpVec3,
   magnitude,
   moveToward,
-  normalizeVec3,
   wrapRadians,
   type Vec3,
 } from '@aether/shared';
@@ -19,7 +17,13 @@ import { CAR, steeringCurvature } from './constants/car.js';
 import { MATCH } from './constants/match.js';
 import { FIXED_DT, WORLD } from './constants/world.js';
 import { NEUTRAL_INPUT, type PlayerInputFrame } from './input.js';
-import { createInitialState, type CarState, type SimulationState, type Team } from './state.js';
+import {
+  createInitialState,
+  type CarState,
+  type MatchPhase,
+  type SimulationState,
+  type Team,
+} from './state.js';
 
 const CAR_HALF_LENGTH = CAR.hitboxLength.value * 0.5;
 const CAR_HALF_WIDTH = CAR.hitboxWidth.value * 0.5;
@@ -42,9 +46,67 @@ export interface InterpolatedGameState {
   carRoll: number;
 }
 
+export interface GameViewState {
+  tick: number;
+  carSpeed: number;
+  carBoost: number;
+  carGrounded: boolean;
+  carSupersonic: boolean;
+  matchPhase: MatchPhase;
+  clockSeconds: number;
+  countdownSeconds: number;
+  blueScore: number;
+  orangeScore: number;
+  lastScorer: Team | null;
+  boostPadActive: Uint8Array;
+}
+
+interface PreviousTransforms {
+  readonly ballPosition: Vec3;
+  readonly carPosition: Vec3;
+  carYaw: number;
+  carPitch: number;
+  carRoll: number;
+}
+
+export function createInterpolatedGameState(): InterpolatedGameState {
+  return {
+    tick: 0,
+    ballPosition: { x: 0, y: 0, z: 0 },
+    carPosition: { x: 0, y: 0, z: 0 },
+    carYaw: 0,
+    carPitch: 0,
+    carRoll: 0,
+  };
+}
+
+export function createGameViewState(): GameViewState {
+  return {
+    tick: 0,
+    carSpeed: 0,
+    carBoost: 0,
+    carGrounded: false,
+    carSupersonic: false,
+    matchPhase: 'freeplay',
+    clockSeconds: 0,
+    countdownSeconds: 0,
+    blueScore: 0,
+    orangeScore: 0,
+    lastScorer: null,
+    boostPadActive: new Uint8Array(BOOST_PAD_LAYOUT.length),
+  };
+}
+
 export class GameSimulation {
   private current: SimulationState;
-  private previous: SimulationState;
+  private readonly previous: PreviousTransforms = {
+    ballPosition: { x: 0, y: 0, z: 0 },
+    carPosition: { x: 0, y: 0, z: 0 },
+    carYaw: 0,
+    carPitch: 0,
+    carRoll: 0,
+  };
+  private readonly sanitizedInput: PlayerInputFrame = { ...NEUTRAL_INPUT };
   private previousJumpDown = false;
   private readonly matchMode: boolean;
 
@@ -53,13 +115,14 @@ export class GameSimulation {
       options.matchMode ?? (initialState !== undefined && initialState.match.phase !== 'freeplay');
     const seed = initialState ?? createInitialState(this.matchMode);
     this.current = structuredClone(seed);
-    this.previous = structuredClone(seed);
+    this.capturePreviousTransforms();
   }
 
   public step(input: Readonly<PlayerInputFrame> = NEUTRAL_INPUT, dt = FIXED_DT): void {
     if (!Number.isFinite(dt) || dt <= 0) return;
-    this.previous = structuredClone(this.current);
-    const sanitized = sanitizeInput(input);
+    this.capturePreviousTransforms();
+    sanitizeInput(input, this.sanitizedInput);
+    const sanitized = this.sanitizedInput;
     this.advanceBoostPadTimers(dt);
 
     if (this.matchMode && this.advanceFrozenMatchPhase(dt)) {
@@ -87,10 +150,34 @@ export class GameSimulation {
     return structuredClone(this.current);
   }
 
+  public getTick(): number {
+    return this.current.tick;
+  }
+
+  public writeViewState(target: GameViewState): GameViewState {
+    const car = this.current.car;
+    const match = this.current.match;
+    target.tick = this.current.tick;
+    target.carSpeed = magnitude(car.linearVelocity);
+    target.carBoost = car.boost;
+    target.carGrounded = car.grounded;
+    target.carSupersonic = car.supersonic;
+    target.matchPhase = match.phase;
+    target.clockSeconds = match.clockSeconds;
+    target.countdownSeconds = match.countdownSeconds;
+    target.blueScore = match.blueScore;
+    target.orangeScore = match.orangeScore;
+    target.lastScorer = match.lastScorer;
+    for (let index = 0; index < this.current.boostPads.length; index += 1) {
+      target.boostPadActive[index] = this.current.boostPads[index]?.active ? 1 : 0;
+    }
+    return target;
+  }
+
   public resetMatch(): void {
     const reset = createInitialState(this.matchMode);
     this.current = reset;
-    this.previous = structuredClone(reset);
+    this.capturePreviousTransforms();
     this.previousJumpDown = false;
   }
 
@@ -102,7 +189,7 @@ export class GameSimulation {
     this.current.ball.position = cloneVec3(position);
     this.current.ball.linearVelocity = cloneVec3(linearVelocity);
     this.current.ball.angularVelocity = cloneVec3(angularVelocity);
-    this.previous = structuredClone(this.current);
+    this.capturePreviousTransforms();
   }
 
   public setCar(
@@ -117,31 +204,41 @@ export class GameSimulation {
     car.rotation.pitch = 0;
     car.rotation.roll = 0;
     car.grounded = position.z <= CAR_HALF_HEIGHT + 0.5;
-    this.previous = structuredClone(this.current);
+    this.capturePreviousTransforms();
   }
 
-  public interpolate(alpha: number): InterpolatedGameState {
+  public interpolate(
+    alpha: number,
+    target: InterpolatedGameState = createInterpolatedGameState(),
+  ): InterpolatedGameState {
     const clampedAlpha = clamp(alpha, 0, 1);
-    return {
-      tick: this.current.tick,
-      ballPosition: lerpVec3(this.previous.ball.position, this.current.ball.position, clampedAlpha),
-      carPosition: lerpVec3(this.previous.car.position, this.current.car.position, clampedAlpha),
-      carYaw: lerpAngle(
-        this.previous.car.rotation.yaw,
-        this.current.car.rotation.yaw,
-        clampedAlpha,
-      ),
-      carPitch: lerpAngle(
-        this.previous.car.rotation.pitch,
-        this.current.car.rotation.pitch,
-        clampedAlpha,
-      ),
-      carRoll: lerpAngle(
-        this.previous.car.rotation.roll,
-        this.current.car.rotation.roll,
-        clampedAlpha,
-      ),
-    };
+    const ball = this.current.ball.position;
+    const car = this.current.car;
+    target.tick = this.current.tick;
+    target.ballPosition.x = lerp(this.previous.ballPosition.x, ball.x, clampedAlpha);
+    target.ballPosition.y = lerp(this.previous.ballPosition.y, ball.y, clampedAlpha);
+    target.ballPosition.z = lerp(this.previous.ballPosition.z, ball.z, clampedAlpha);
+    target.carPosition.x = lerp(this.previous.carPosition.x, car.position.x, clampedAlpha);
+    target.carPosition.y = lerp(this.previous.carPosition.y, car.position.y, clampedAlpha);
+    target.carPosition.z = lerp(this.previous.carPosition.z, car.position.z, clampedAlpha);
+    target.carYaw = lerpAngle(this.previous.carYaw, car.rotation.yaw, clampedAlpha);
+    target.carPitch = lerpAngle(this.previous.carPitch, car.rotation.pitch, clampedAlpha);
+    target.carRoll = lerpAngle(this.previous.carRoll, car.rotation.roll, clampedAlpha);
+    return target;
+  }
+
+  private capturePreviousTransforms(): void {
+    const ball = this.current.ball.position;
+    const car = this.current.car;
+    this.previous.ballPosition.x = ball.x;
+    this.previous.ballPosition.y = ball.y;
+    this.previous.ballPosition.z = ball.z;
+    this.previous.carPosition.x = car.position.x;
+    this.previous.carPosition.y = car.position.y;
+    this.previous.carPosition.z = car.position.z;
+    this.previous.carYaw = car.rotation.yaw;
+    this.previous.carPitch = car.rotation.pitch;
+    this.previous.carRoll = car.rotation.roll;
   }
 
   private integrateCar(input: Readonly<PlayerInputFrame>, dt: number): void {
@@ -199,10 +296,10 @@ export class GameSimulation {
   }
 
   private integrateGroundDrive(car: CarState, input: Readonly<PlayerInputFrame>, dt: number): void {
-    const forward = forwardFromYaw(car.rotation.yaw);
-    const right = rightFromYaw(car.rotation.yaw);
-    let forwardSpeed = dotVec3(car.linearVelocity, forward);
-    let lateralSpeed = dotVec3(car.linearVelocity, right);
+    const sine = Math.sin(car.rotation.yaw);
+    const cosine = Math.cos(car.rotation.yaw);
+    let forwardSpeed = car.linearVelocity.x * sine + car.linearVelocity.y * cosine;
+    let lateralSpeed = car.linearVelocity.x * cosine - car.linearVelocity.y * sine;
     const throttle = input.throttle;
 
     let acceleration: number;
@@ -235,8 +332,8 @@ export class GameSimulation {
       lateralSpeed *= scale;
     }
 
-    car.linearVelocity.x = forward.x * forwardSpeed + right.x * lateralSpeed;
-    car.linearVelocity.y = forward.y * forwardSpeed + right.y * lateralSpeed;
+    car.linearVelocity.x = sine * forwardSpeed + cosine * lateralSpeed;
+    car.linearVelocity.y = cosine * forwardSpeed - sine * lateralSpeed;
 
     const steeringSpeed = Math.abs(forwardSpeed);
     const direction = forwardSpeed < -5 ? -1 : 1;
@@ -246,16 +343,21 @@ export class GameSimulation {
   }
 
   private integrateAirControl(car: CarState, input: Readonly<PlayerInputFrame>, dt: number): void {
-    const forward = forwardFromRotation(car.rotation.yaw, car.rotation.pitch);
+    const horizontal = Math.cos(car.rotation.pitch);
+    const forwardX = Math.sin(car.rotation.yaw) * horizontal;
+    const forwardY = Math.cos(car.rotation.yaw) * horizontal;
+    const forwardZ = Math.sin(car.rotation.pitch);
     if (Math.abs(input.throttle) > 0.001) {
-      addScaledVec3(
-        car.linearVelocity,
-        forward,
-        CAR.airThrottleAcceleration.value * input.throttle * dt,
-      );
+      const impulse = CAR.airThrottleAcceleration.value * input.throttle * dt;
+      car.linearVelocity.x += forwardX * impulse;
+      car.linearVelocity.y += forwardY * impulse;
+      car.linearVelocity.z += forwardZ * impulse;
     }
     if (input.boost && car.boost > 0) {
-      addScaledVec3(car.linearVelocity, forward, CAR.airBoostAcceleration.value * dt);
+      const impulse = CAR.airBoostAcceleration.value * dt;
+      car.linearVelocity.x += forwardX * impulse;
+      car.linearVelocity.y += forwardY * impulse;
+      car.linearVelocity.z += forwardZ * impulse;
       car.boost = Math.max(0, car.boost - CAR.boostConsumption.value * dt);
     }
 
@@ -298,12 +400,12 @@ export class GameSimulation {
 
     const normalizedForward = localForward / directionLength;
     const normalizedSide = localSide / directionLength;
-    const forward = forwardFromYaw(car.rotation.yaw);
-    const right = rightFromYaw(car.rotation.yaw);
+    const sine = Math.sin(car.rotation.yaw);
+    const cosine = Math.cos(car.rotation.yaw);
     car.linearVelocity.x +=
-      (forward.x * normalizedForward + right.x * normalizedSide) * CAR.dodgeImpulse.value;
+      (sine * normalizedForward + cosine * normalizedSide) * CAR.dodgeImpulse.value;
     car.linearVelocity.y +=
-      (forward.y * normalizedForward + right.y * normalizedSide) * CAR.dodgeImpulse.value;
+      (cosine * normalizedForward - sine * normalizedSide) * CAR.dodgeImpulse.value;
     car.linearVelocity.z += CAR.dodgeVerticalImpulse.value;
     car.angularVelocity.x += -normalizedForward * 5.2;
     car.angularVelocity.y += normalizedSide * 5.2;
@@ -516,94 +618,80 @@ export class GameSimulation {
     const closestX = clamp(localX, -CAR_HALF_WIDTH, CAR_HALF_WIDTH);
     const closestY = clamp(localY, -CAR_HALF_LENGTH, CAR_HALF_LENGTH);
     const closestZ = clamp(localZ, -CAR_HALF_HEIGHT, CAR_HALF_HEIGHT);
-    const difference = {
-      x: localX - closestX,
-      y: localY - closestY,
-      z: localZ - closestZ,
-    };
-    const distance = magnitude(difference);
+    const differenceX = localX - closestX;
+    const differenceY = localY - closestY;
+    const differenceZ = localZ - closestZ;
+    const distance = Math.hypot(differenceX, differenceY, differenceZ);
     if (distance >= BALL.radius.value) return;
 
-    const localNormal = normalizeVec3(difference, { x: 0, y: 0, z: 1 });
-    const normal = {
-      x: localNormal.x * cosine + localNormal.y * sine,
-      y: -localNormal.x * sine + localNormal.y * cosine,
-      z: localNormal.z,
-    };
-    addScaledVec3(ball.position, normal, BALL.radius.value - distance + POSITIONAL_SLOP);
+    const inverseDistance = distance > Number.EPSILON ? 1 / distance : 0;
+    const localNormalX = differenceX * inverseDistance;
+    const localNormalY = differenceY * inverseDistance;
+    const localNormalZ = distance > Number.EPSILON ? differenceZ * inverseDistance : 1;
+    const normalX = localNormalX * cosine + localNormalY * sine;
+    const normalY = -localNormalX * sine + localNormalY * cosine;
+    const normalZ = localNormalZ;
+    const correction = BALL.radius.value - distance + POSITIONAL_SLOP;
+    ball.position.x += normalX * correction;
+    ball.position.y += normalY * correction;
+    ball.position.z += normalZ * correction;
 
-    const contactOffset = {
-      x: ball.position.x - car.position.x,
-      y: ball.position.y - car.position.y,
-      z: ball.position.z - car.position.z,
-    };
-    const contactVelocity = {
-      x: car.linearVelocity.x - car.angularVelocity.z * contactOffset.y,
-      y: car.linearVelocity.y + car.angularVelocity.z * contactOffset.x,
-      z: car.linearVelocity.z,
-    };
-    const relativeVelocity = {
-      x: ball.linearVelocity.x - contactVelocity.x,
-      y: ball.linearVelocity.y - contactVelocity.y,
-      z: ball.linearVelocity.z - contactVelocity.z,
-    };
-    const normalSpeed = dotVec3(relativeVelocity, normal);
+    const contactOffsetX = ball.position.x - car.position.x;
+    const contactOffsetY = ball.position.y - car.position.y;
+    const contactVelocityX = car.linearVelocity.x - car.angularVelocity.z * contactOffsetY;
+    const contactVelocityY = car.linearVelocity.y + car.angularVelocity.z * contactOffsetX;
+    const relativeX = ball.linearVelocity.x - contactVelocityX;
+    const relativeY = ball.linearVelocity.y - contactVelocityY;
+    const relativeZ = ball.linearVelocity.z - car.linearVelocity.z;
+    const normalSpeed = relativeX * normalX + relativeY * normalY + relativeZ * normalZ;
     if (normalSpeed >= 0) return;
 
     const inverseMass = 1 / BALL.mass.value + 1 / CAR.mass.value;
     const dodgeMultiplier = car.jump.dodgeActiveSeconds > 0 ? 1.18 : 1;
     const impulse = (-(1 + IMPACT_RESTITUTION) * normalSpeed * dodgeMultiplier) / inverseMass;
-    addScaledVec3(ball.linearVelocity, normal, impulse / BALL.mass.value);
-    addScaledVec3(car.linearVelocity, normal, -impulse / CAR.mass.value);
+    const ballImpulse = impulse / BALL.mass.value;
+    const carImpulse = impulse / CAR.mass.value;
+    ball.linearVelocity.x += normalX * ballImpulse;
+    ball.linearVelocity.y += normalY * ballImpulse;
+    ball.linearVelocity.z += normalZ * ballImpulse;
+    car.linearVelocity.x -= normalX * carImpulse;
+    car.linearVelocity.y -= normalY * carImpulse;
+    car.linearVelocity.z -= normalZ * carImpulse;
 
-    const tangentVelocity = {
-      x: relativeVelocity.x - normal.x * normalSpeed,
-      y: relativeVelocity.y - normal.y * normalSpeed,
-      z: relativeVelocity.z - normal.z * normalSpeed,
-    };
-    const tangent = normalizeVec3(tangentVelocity);
-    const spinImpulse = Math.min(2.5, magnitude(tangentVelocity) / 900);
-    ball.angularVelocity.x += (normal.y * tangent.z - normal.z * tangent.y) * spinImpulse;
-    ball.angularVelocity.y += (normal.z * tangent.x - normal.x * tangent.z) * spinImpulse;
-    ball.angularVelocity.z += (normal.x * tangent.y - normal.y * tangent.x) * spinImpulse;
+    const tangentX = relativeX - normalX * normalSpeed;
+    const tangentY = relativeY - normalY * normalSpeed;
+    const tangentZ = relativeZ - normalZ * normalSpeed;
+    const tangentLength = Math.hypot(tangentX, tangentY, tangentZ);
+    const inverseTangent = tangentLength > Number.EPSILON ? 1 / tangentLength : 0;
+    const normalizedTangentX = tangentX * inverseTangent;
+    const normalizedTangentY = tangentY * inverseTangent;
+    const normalizedTangentZ = tangentZ * inverseTangent;
+    const spinImpulse = Math.min(2.5, tangentLength / 900);
+    ball.angularVelocity.x +=
+      (normalY * normalizedTangentZ - normalZ * normalizedTangentY) * spinImpulse;
+    ball.angularVelocity.y +=
+      (normalZ * normalizedTangentX - normalX * normalizedTangentZ) * spinImpulse;
+    ball.angularVelocity.z +=
+      (normalX * normalizedTangentY - normalY * normalizedTangentX) * spinImpulse;
     clampMagnitude(ball.linearVelocity, BALL.maximumLinearSpeed.value);
     clampMagnitude(ball.angularVelocity, BALL.maximumAngularSpeed.value);
   }
 }
 
-function sanitizeInput(input: Readonly<PlayerInputFrame>): PlayerInputFrame {
-  return {
-    sequence: Number.isSafeInteger(input.sequence) ? input.sequence : 0,
-    tick: Number.isSafeInteger(input.tick) ? input.tick : 0,
-    throttle: clampFinite(input.throttle),
-    steer: clampFinite(input.steer),
-    pitch: clampFinite(input.pitch),
-    yaw: clampFinite(input.yaw),
-    roll: clampFinite(input.roll),
-    jump: input.jump === true,
-    boost: input.boost === true,
-    handbrake: input.handbrake === true,
-    ballCam: input.ballCam !== false,
-  };
+function sanitizeInput(input: Readonly<PlayerInputFrame>, target: PlayerInputFrame): void {
+  target.sequence = Number.isSafeInteger(input.sequence) ? input.sequence : 0;
+  target.tick = Number.isSafeInteger(input.tick) ? input.tick : 0;
+  target.throttle = clampFinite(input.throttle);
+  target.steer = clampFinite(input.steer);
+  target.pitch = clampFinite(input.pitch);
+  target.yaw = clampFinite(input.yaw);
+  target.roll = clampFinite(input.roll);
+  target.jump = input.jump === true;
+  target.boost = input.boost === true;
+  target.handbrake = input.handbrake === true;
+  target.ballCam = input.ballCam !== false;
 }
 
 function clampFinite(value: number): number {
   return Number.isFinite(value) ? clamp(value, -1, 1) : 0;
-}
-
-function forwardFromYaw(yaw: number): Vec3 {
-  return { x: Math.sin(yaw), y: Math.cos(yaw), z: 0 };
-}
-
-function rightFromYaw(yaw: number): Vec3 {
-  return { x: Math.cos(yaw), y: -Math.sin(yaw), z: 0 };
-}
-
-function forwardFromRotation(yaw: number, pitch: number): Vec3 {
-  const horizontal = Math.cos(pitch);
-  return {
-    x: Math.sin(yaw) * horizontal,
-    y: Math.cos(yaw) * horizontal,
-    z: Math.sin(pitch),
-  };
 }

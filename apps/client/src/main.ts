@@ -6,6 +6,8 @@ import {
   CAR,
   FixedStepRunner,
   GameSimulation,
+  createGameViewState,
+  createInterpolatedGameState,
   type PlayerInputFrame,
 } from '@aether/simulation';
 import './style.css';
@@ -190,6 +192,21 @@ for (const [x, z] of [
 scene.add(carGroup);
 
 const simulation = new GameSimulation(undefined, { matchMode: true });
+const interpolatedState = createInterpolatedGameState();
+const viewState = createGameViewState();
+const sampledInput: PlayerInputFrame = {
+  sequence: 0,
+  tick: 0,
+  throttle: 0,
+  steer: 0,
+  pitch: 0,
+  yaw: 0,
+  roll: 0,
+  jump: false,
+  boost: false,
+  handbrake: false,
+  ballCam: true,
+};
 const keys = new Set<string>();
 let ballCamera = true;
 let sequence = 0;
@@ -208,49 +225,49 @@ function axis(negative: string, positive: string): number {
   return (keys.has(positive) ? 1 : 0) - (keys.has(negative) ? 1 : 0);
 }
 
-function gamepadInput(): Partial<PlayerInputFrame> {
-  const pad = navigator.getGamepads().find((candidate) => candidate?.connected);
-  if (!pad) return {};
-  const steer = applyDeadzone(pad.axes[0] ?? 0, 0.12);
-  const vertical = applyDeadzone(pad.axes[1] ?? 0, 0.12);
-  const leftTrigger = pad.buttons[6]?.value ?? 0;
-  const rightTrigger = pad.buttons[7]?.value ?? 0;
-  return {
-    throttle: rightTrigger - leftTrigger,
-    steer,
-    pitch: vertical,
-    yaw: steer,
-    roll: (pad.buttons[5]?.pressed ? 1 : 0) - (pad.buttons[4]?.pressed ? 1 : 0),
-    jump: pad.buttons[0]?.pressed ?? false,
-    boost: pad.buttons[1]?.pressed ?? false,
-    handbrake: pad.buttons[2]?.pressed ?? false,
-  };
+function findConnectedGamepad(): Gamepad | null {
+  const gamepads = navigator.getGamepads();
+  for (let index = 0; index < gamepads.length; index += 1) {
+    const candidate = gamepads[index];
+    if (candidate?.connected) return candidate;
+  }
+  return null;
 }
 
 function sampleInput(): PlayerInputFrame {
-  const pad = gamepadInput();
+  const pad = findConnectedGamepad();
   const keyboardThrottle = axis('KeyS', 'KeyW');
   const keyboardSteer = axis('KeyA', 'KeyD');
   const keyboardPitch = axis('KeyW', 'KeyS');
-  const togglePressed =
-    keys.has('KeyC') || navigator.getGamepads().some((item) => item?.buttons[3]?.pressed);
+  const steer = pad === null ? keyboardSteer : applyDeadzone(pad.axes[0] ?? 0, 0.12);
+  const vertical = pad === null ? keyboardPitch : applyDeadzone(pad.axes[1] ?? 0, 0.12);
+  const togglePressed = keys.has('KeyC') || (pad?.buttons[3]?.pressed ?? false);
   if (togglePressed && !lastCameraToggle) ballCamera = !ballCamera;
   lastCameraToggle = togglePressed;
 
   sequence += 1;
-  return {
-    sequence,
-    tick: simulation.getState().tick,
-    throttle: pad.throttle ?? keyboardThrottle,
-    steer: pad.steer ?? keyboardSteer,
-    pitch: pad.pitch ?? keyboardPitch,
-    yaw: pad.yaw ?? keyboardSteer,
-    roll: pad.roll ?? axis('KeyQ', 'KeyE'),
-    jump: pad.jump ?? keys.has('Space'),
-    boost: pad.boost ?? (keys.has('ShiftLeft') || keys.has('ShiftRight')),
-    handbrake: pad.handbrake ?? (keys.has('ControlLeft') || keys.has('ControlRight')),
-    ballCam: ballCamera,
-  };
+  sampledInput.sequence = sequence;
+  sampledInput.tick = simulation.getTick();
+  sampledInput.throttle =
+    pad === null ? keyboardThrottle : (pad.buttons[7]?.value ?? 0) - (pad.buttons[6]?.value ?? 0);
+  sampledInput.steer = steer;
+  sampledInput.pitch = vertical;
+  sampledInput.yaw = steer;
+  sampledInput.roll =
+    pad === null
+      ? axis('KeyQ', 'KeyE')
+      : (pad.buttons[5]?.pressed ? 1 : 0) - (pad.buttons[4]?.pressed ? 1 : 0);
+  sampledInput.jump = pad === null ? keys.has('Space') : (pad.buttons[0]?.pressed ?? false);
+  sampledInput.boost =
+    pad === null
+      ? keys.has('ShiftLeft') || keys.has('ShiftRight')
+      : (pad.buttons[1]?.pressed ?? false);
+  sampledInput.handbrake =
+    pad === null
+      ? keys.has('ControlLeft') || keys.has('ControlRight')
+      : (pad.buttons[2]?.pressed ?? false);
+  sampledInput.ballCam = ballCamera;
+  return sampledInput;
 }
 
 function applyDeadzone(value: number, deadzone: number): number {
@@ -273,8 +290,8 @@ function frame(now: number): void {
   const elapsed = Math.min(0.1, (now - lastFrameTime) / 1000);
   lastFrameTime = now;
   const stats = runner.advance(elapsed);
-  const interpolated = simulation.interpolate(stats.alpha);
-  const state = simulation.getState();
+  const interpolated = simulation.interpolate(stats.alpha, interpolatedState);
+  simulation.writeViewState(viewState);
 
   ballMesh.position.set(
     interpolated.ballPosition.x,
@@ -289,12 +306,13 @@ function frame(now: number): void {
   carGroup.rotation.order = 'YXZ';
   carGroup.rotation.set(-interpolated.carPitch, -interpolated.carYaw, interpolated.carRoll);
 
-  for (const padState of state.boostPads) {
-    const mesh = padMeshes[padState.id];
+  for (let padId = 0; padId < padMeshes.length; padId += 1) {
+    const mesh = padMeshes[padId];
     if (mesh === undefined) continue;
-    mesh.visible = padState.active;
-    if (padState.active) {
-      const pulse = 1 + Math.sin(now * 0.004 + padState.id) * 0.04;
+    const active = viewState.boostPadActive[padId] === 1;
+    mesh.visible = active;
+    if (active) {
+      const pulse = 1 + Math.sin(now * 0.004 + padId) * 0.04;
       mesh.scale.set(pulse, 1, pulse);
     }
   }
@@ -324,41 +342,34 @@ function frame(now: number): void {
   cameraTarget.lerp(lookTarget, 1 - Math.exp(-elapsed * 11));
   camera.lookAt(cameraTarget);
 
-  const speed = Math.hypot(
-    state.car.linearVelocity.x,
-    state.car.linearVelocity.y,
-    state.car.linearVelocity.z,
-  );
-  if (speedElement) speedElement.textContent = `${Math.round(speed * 0.036)} KM/H`;
-  if (boostElement) boostElement.textContent = String(Math.round(state.car.boost));
+  if (speedElement) speedElement.textContent = `${Math.round(viewState.carSpeed * 0.036)} KM/H`;
+  if (boostElement) boostElement.textContent = String(Math.round(viewState.carBoost));
   if (stateElement) {
-    stateElement.textContent = state.car.supersonic
+    stateElement.textContent = viewState.carSupersonic
       ? 'SUPERSONIC'
-      : state.car.grounded
+      : viewState.carGrounded
         ? 'GROUNDED'
         : 'AIRBORNE';
   }
-  if (blueScoreElement) blueScoreElement.textContent = String(state.match.blueScore);
-  if (orangeScoreElement) orangeScoreElement.textContent = String(state.match.orangeScore);
+  if (blueScoreElement) blueScoreElement.textContent = String(viewState.blueScore);
+  if (orangeScoreElement) orangeScoreElement.textContent = String(viewState.orangeScore);
   if (clockElement) {
     clockElement.textContent =
-      state.match.phase === 'overtime' ? '+0:00' : formatClock(state.match.clockSeconds);
+      viewState.matchPhase === 'overtime' ? '+0:00' : formatClock(viewState.clockSeconds);
   }
-  if (phaseElement) phaseElement.textContent = state.match.phase.toUpperCase();
+  if (phaseElement) phaseElement.textContent = viewState.matchPhase.toUpperCase();
   if (announcementElement) {
-    if (state.match.phase === 'countdown') {
-      announcementElement.textContent = String(
-        Math.max(1, Math.ceil(state.match.countdownSeconds)),
-      );
+    if (viewState.matchPhase === 'countdown') {
+      announcementElement.textContent = String(Math.max(1, Math.ceil(viewState.countdownSeconds)));
       announcementElement.classList.add('visible');
-    } else if (state.match.phase === 'goal') {
-      announcementElement.textContent = `${state.match.lastScorer?.toUpperCase() ?? ''} SCORES`;
+    } else if (viewState.matchPhase === 'goal') {
+      announcementElement.textContent = `${viewState.lastScorer?.toUpperCase() ?? ''} SCORES`;
       announcementElement.classList.add('visible');
-    } else if (state.match.phase === 'ended') {
-      const winner = state.match.blueScore > state.match.orangeScore ? 'BLUE' : 'ORANGE';
+    } else if (viewState.matchPhase === 'ended') {
+      const winner = viewState.blueScore > viewState.orangeScore ? 'BLUE' : 'ORANGE';
       announcementElement.textContent = `${winner} WINS`;
       announcementElement.classList.add('visible');
-    } else if (state.match.phase === 'overtime') {
+    } else if (viewState.matchPhase === 'overtime') {
       announcementElement.textContent = 'OVERTIME';
       announcementElement.classList.add('visible');
     } else {
