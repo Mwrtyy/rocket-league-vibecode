@@ -29,19 +29,13 @@ export function addArenaBoundaryVisuals(scene: THREE.Scene): void {
   addGoalVisuals(scene, wallMaterial);
 }
 
-function createVerticalWall(
-  segment: ArenaWallSegment,
-  material: THREE.Material,
-): THREE.Mesh {
+function createVerticalWall(segment: ArenaWallSegment, material: THREE.Material): THREE.Mesh {
   const deltaX = segment.endX - segment.startX;
   const deltaY = segment.endY - segment.startY;
   const length = Math.hypot(deltaX, deltaY);
   const curveRadius = ARENA.floorWallCurveRadius.value;
   const height = WALL_HEIGHT - curveRadius;
-  const wall = new THREE.Mesh(
-    new THREE.BoxGeometry(length, height, WALL_THICKNESS),
-    material,
-  );
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(length, height, WALL_THICKNESS), material);
   wall.position.set(
     (segment.startX + segment.endX) * 0.5,
     curveRadius + height * 0.5,
@@ -52,10 +46,7 @@ function createVerticalWall(
   return wall;
 }
 
-function createFloorCurve(
-  segment: ArenaWallSegment,
-  material: THREE.Material,
-): THREE.Mesh {
+function createFloorCurve(segment: ArenaWallSegment, material: THREE.Material): THREE.Mesh {
   const curveRadius = ARENA.floorWallCurveRadius.value;
   const vertices = new Float32Array((CURVE_SUBDIVISIONS + 1) * 2 * 3);
   const indices: number[] = [];
@@ -104,10 +95,7 @@ function addGoalVisuals(scene: THREE.Scene, material: THREE.Material): void {
     const goalCenterY = backY + signY * depth * 0.5;
     const goalEndY = backY + signY * depth;
 
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(openingWidth, depth),
-      goalMaterial,
-    );
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(openingWidth, depth), goalMaterial);
     floor.rotation.x = -Math.PI * 0.5;
     floor.position.set(0, 0.8, -goalCenterY);
     floor.receiveShadow = true;
