@@ -36,12 +36,7 @@ describe('octagonal arena boundary', () => {
     expect(sample.distance).toBeCloseTo(0, 6);
 
     const alongCorner = 80;
-    writeArenaWallSample(
-      { x: seamX - alongCorner, y: seamY + alongCorner, z: 600 },
-      0,
-      0,
-      sample,
-    );
+    writeArenaWallSample({ x: seamX - alongCorner, y: seamY + alongCorner, z: 600 }, 0, 0, sample);
     expect(sample.distance).toBeCloseTo(0, 6);
 
     const inwardOffset = 10;
@@ -96,8 +91,7 @@ describe('ArenaCollisionResolver', () => {
 
     resolver.resolveSphere(position, velocity, BALL_RADIUS, 0.6);
 
-    const insetPlane =
-      ARENA.cornerPlaneIntercept.value - BALL_RADIUS / Math.SQRT1_2;
+    const insetPlane = ARENA.cornerPlaneIntercept.value - BALL_RADIUS / Math.SQRT1_2;
     expect(position.x + position.y).toBeCloseTo(insetPlane, 5);
     expect(velocity.x).toBeLessThan(0);
     expect(velocity.y).toBeLessThan(0);
@@ -153,9 +147,7 @@ describe('ArenaCollisionResolver', () => {
     expect(Math.abs(interiorPosition.y)).toBeLessThanOrEqual(
       ARENA.backWallY.value + ARENA.goalDepth.value - BALL_RADIUS + 1e-6,
     );
-    expect(interiorPosition.z).toBeLessThanOrEqual(
-      ARENA.goalHeight.value - BALL_RADIUS + 1e-6,
-    );
+    expect(interiorPosition.z).toBeLessThanOrEqual(ARENA.goalHeight.value - BALL_RADIUS + 1e-6);
     expect(interiorContact.contactCount).toBeGreaterThanOrEqual(3);
   });
 
@@ -196,15 +188,7 @@ describe('ArenaCollisionResolver', () => {
 
     position.x = ARENA.sideWallX.value - 10;
     velocity.x = 500;
-    resolver.resolveBox(
-      position,
-      velocity,
-      Math.PI * 0.5,
-      halfWidth,
-      halfLength,
-      halfHeight,
-      0,
-    );
+    resolver.resolveBox(position, velocity, Math.PI * 0.5, halfWidth, halfLength, halfHeight, 0);
     expect(position.x).toBeCloseTo(ARENA.sideWallX.value - halfLength, 6);
   });
 });

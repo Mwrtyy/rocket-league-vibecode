@@ -126,8 +126,7 @@ export function writeArenaWallSample(
   }
 
   const sideDistance = ARENA.sideWallX.value - absoluteX;
-  const cornerDistance =
-    (ARENA.cornerPlaneIntercept.value - absoluteX - absoluteY) * INV_SQRT_TWO;
+  const cornerDistance = (ARENA.cornerPlaneIntercept.value - absoluteX - absoluteY) * INV_SQRT_TWO;
   const fitsGoalOpening =
     absoluteX <= ARENA.goalHalfWidth.value - horizontalRadius &&
     position.z <= ARENA.goalHeight.value - verticalRadius;
@@ -189,13 +188,7 @@ export class ArenaCollisionResolver {
     const rightProjection = Math.abs(normalX * cosine - normalY * sine);
     const forwardProjection = Math.abs(normalX * sine + normalY * cosine);
     const horizontalSupport = rightProjection * halfWidth + forwardProjection * halfLength;
-    return this.resolveBody(
-      position,
-      linearVelocity,
-      horizontalSupport,
-      halfHeight,
-      restitution,
-    );
+    return this.resolveBody(position, linearVelocity, horizontalSupport, halfHeight, restitution);
   }
 
   private resolveBody(
@@ -210,12 +203,7 @@ export class ArenaCollisionResolver {
     const safeVerticalRadius = Math.max(0, verticalRadius);
     const safeRestitution = Math.max(0, restitution);
 
-    writeArenaWallSample(
-      position,
-      safeHorizontalRadius,
-      safeVerticalRadius,
-      this.wallSample,
-    );
+    writeArenaWallSample(position, safeHorizontalRadius, safeVerticalRadius, this.wallSample);
     if (this.wallSample.goalVolume) {
       this.resolveGoalVolume(
         position,
@@ -228,12 +216,7 @@ export class ArenaCollisionResolver {
     }
 
     for (let iteration = 0; iteration < 2; iteration += 1) {
-      writeArenaWallSample(
-        position,
-        safeHorizontalRadius,
-        safeVerticalRadius,
-        this.wallSample,
-      );
+      writeArenaWallSample(position, safeHorizontalRadius, safeVerticalRadius, this.wallSample);
       this.resolveLowerCurve(
         position,
         linearVelocity,
@@ -242,12 +225,7 @@ export class ArenaCollisionResolver {
         safeRestitution,
       );
 
-      writeArenaWallSample(
-        position,
-        safeHorizontalRadius,
-        safeVerticalRadius,
-        this.wallSample,
-      );
+      writeArenaWallSample(position, safeHorizontalRadius, safeVerticalRadius, this.wallSample);
       this.resolveUpperCurve(
         position,
         linearVelocity,
@@ -256,12 +234,7 @@ export class ArenaCollisionResolver {
         safeRestitution,
       );
 
-      writeArenaWallSample(
-        position,
-        safeHorizontalRadius,
-        safeVerticalRadius,
-        this.wallSample,
-      );
+      writeArenaWallSample(position, safeHorizontalRadius, safeVerticalRadius, this.wallSample);
       if (this.wallSample.distance < safeHorizontalRadius) {
         const correction = safeHorizontalRadius - this.wallSample.distance;
         position.x += this.wallSample.inwardNormalX * correction;
@@ -414,9 +387,7 @@ export class ArenaCollisionResolver {
     surface: ArenaContactSurface,
   ): void {
     const normalSpeed =
-      linearVelocity.x * normalX +
-      linearVelocity.y * normalY +
-      linearVelocity.z * normalZ;
+      linearVelocity.x * normalX + linearVelocity.y * normalY + linearVelocity.z * normalZ;
     if (normalSpeed < 0) {
       const impulseScale = (1 + restitution) * normalSpeed;
       linearVelocity.x -= impulseScale * normalX;
