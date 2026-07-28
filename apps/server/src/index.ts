@@ -10,7 +10,7 @@ import {
 
 const port = Number(process.env.PORT ?? 8080);
 const wss = new WebSocketServer({ port });
-const simulation = new GameSimulation();
+const simulation = new GameSimulation(undefined, { matchMode: true });
 const lastSequence = new WeakMap<WebSocket, number>();
 const pendingInput = new WeakMap<WebSocket, PlayerInputFrame>();
 let driver: WebSocket | null = null;
