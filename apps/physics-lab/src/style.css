@@ -1,12 +1,71 @@
-:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #eaf5ff; background: #050910; }
-* { box-sizing: border-box; }
-body { margin: 0; overflow: hidden; }
-canvas { display: block; }
-.panel { position: fixed; top: 16px; left: 16px; width: min(360px, calc(100vw - 32px)); padding: 16px; border: 1px solid rgba(125, 211, 252, .25); border-radius: 16px; background: rgba(5, 12, 23, .82); backdrop-filter: blur(16px); box-shadow: 0 20px 80px rgba(0,0,0,.45); }
-.panel h1 { margin: 0 0 4px; font-size: 20px; letter-spacing: .04em; }
-.panel p { margin: 0 0 14px; color: #9eb4c9; font-size: 13px; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-button, select { min-height: 38px; border: 1px solid #24425c; border-radius: 9px; color: inherit; background: #0c1927; padding: 0 12px; font: inherit; }
-button:hover { border-color: #59d8ff; }
-pre { max-height: 180px; overflow: auto; margin: 12px 0 0; color: #85f1c2; font-size: 12px; }
-.badge { display: inline-block; margin-bottom: 12px; padding: 4px 8px; border-radius: 999px; background: rgba(33, 211, 148, .12); color: #7df7c4; font-size: 11px; }
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #eaf5ff;
+  background: #050910;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  overflow: hidden;
+}
+canvas {
+  display: block;
+}
+.panel {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 16px;
+  background: rgba(5, 12, 23, 0.82);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.45);
+}
+.panel h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+}
+.panel p {
+  margin: 0 0 14px;
+  color: #9eb4c9;
+  font-size: 13px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+button,
+select {
+  min-height: 38px;
+  border: 1px solid #24425c;
+  border-radius: 9px;
+  color: inherit;
+  background: #0c1927;
+  padding: 0 12px;
+  font: inherit;
+}
+button:hover {
+  border-color: #59d8ff;
+}
+pre {
+  max-height: 180px;
+  overflow: auto;
+  margin: 12px 0 0;
+  color: #85f1c2;
+  font-size: 12px;
+}
+.badge {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(33, 211, 148, 0.12);
+  color: #7df7c4;
+  font-size: 11px;
+}

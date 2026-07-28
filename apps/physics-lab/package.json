@@ -8,6 +8,13 @@
     "@aether/simulation": "workspace:*",
     "three": "0.180.0"
   },
-  "devDependencies": { "vite": "8.1.5" },
-  "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview", "typecheck": "tsc -p tsconfig.json --noEmit" }
+  "devDependencies": {
+    "vite": "8.1.5"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
 }

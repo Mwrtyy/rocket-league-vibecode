@@ -4,13 +4,12 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "baseUrl": ".",
     "paths": {
-      "@aether/shared": ["packages/shared/src/index.ts"],
-      "@aether/shared/*": ["packages/shared/src/*"],
-      "@aether/simulation": ["packages/simulation/src/index.ts"],
-      "@aether/physics-adapter": ["packages/physics-adapter/src/index.ts"],
-      "@aether/networking": ["packages/networking/src/index.ts"]
+      "@aether/shared": ["./packages/shared/src/index.ts"],
+      "@aether/shared/*": ["./packages/shared/src/*"],
+      "@aether/simulation": ["./packages/simulation/src/index.ts"],
+      "@aether/physics-adapter": ["./packages/physics-adapter/src/index.ts"],
+      "@aether/networking": ["./packages/networking/src/index.ts"]
     },
     "strict": true,
     "noUncheckedIndexedAccess": true,
