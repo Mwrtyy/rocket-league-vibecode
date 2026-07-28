@@ -8,6 +8,7 @@ export * from './constants/provenance.js';
 export * from './constants/world.js';
 export * from './experiments.js';
 export * from './fixed-step.js';
+export * from './game-simulation.js';
 export * from './hash.js';
 export * from './input.js';
 export * from './reference-simulation.js';
